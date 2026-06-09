@@ -1,11 +1,11 @@
 {
   "projectType": "api-service",
-  "projectName": "Bluum Finance",
+  "projectName": "Buildmarkets",
   "projectDescription": "An investment infrastructure API that lets fintech companies embed accounts, compliance, trading, portfolio management, and custody into their products through a single REST API.",
   "theme": "luma",
-  "primaryColor": "#9ca08c",
-  "lightColor": "#3d4625",
-  "darkColor": "#d0d5cd",
+  "primaryColor": "#3E5FFE",
+  "lightColor": "#8D98FF",
+  "darkColor": "#3549A3",
   "navigation": {
     "tabs": [
       {

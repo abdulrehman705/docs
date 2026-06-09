@@ -1,16 +1,31 @@
 {
   "$schema": "https://mintlify.com/docs.json",
   "theme": "luma",
-  "name": "Bluum Finance",
+  "name": "Buildmarkets",
   "colors": {
-    "primary": "#9ca08c",
-    "light": "#3d4625",
-    "dark": "#d0d5cd"
+    "primary": "#3E5FFE",
+    "light": "#8D98FF",
+    "dark": "#3549A3"
   },
-  "favicon": "https://media.brand.dev/802ba7bd-9e7d-4c59-8c52-3121d0ce85e1.png",
+  "fonts": {
+    "heading": {
+      "family": "Gelasio",
+      "weight": 500
+    },
+    "body": {
+      "family": "Geist"
+    }
+  },
+  "background": {
+    "color": {
+      "light": "#FFFFFF",
+      "dark": "#051132"
+    }
+  },
+  "favicon": "/favicon.png",
   "logo": {
-    "light": "https://media.brand.dev/5f24b2ea-4488-444f-aac0-d4d8ffcdb8b0.svg",
-    "dark": "https://media.brand.dev/9b31d3ea-66d8-40a6-b6c5-5e5edf0dd4d9.svg"
+    "light": "/logo/light.png",
+    "dark": "/logo/dark.png"
   },
   "navbar": {
     "primary": {
