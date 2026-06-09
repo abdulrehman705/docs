@@ -1,0 +1,109 @@
+---
+title: "Idempotency — Safe Retries for Financial Operations"
+sidebarTitle: "Idempotency"
+description: "Use Idempotency-Key headers to retry failed requests without creating duplicates. Learn when keys are required, how to generate them, and expiration rules."
+---
+
+Idempotency ensures that retrying a failed request doesn't create duplicate side effects. For financial operations like deposits and withdrawals, a duplicate could mean moving money twice — so Bluum provides a built-in idempotency mechanism you should use on every mutating financial request.
+
+## Why idempotency matters
+
+Network failures and timeouts are inevitable. When your code retries a request after not receiving a response, you can't know whether the original request succeeded. Without idempotency, that retry could create a second deposit or a second trade. With an `Idempotency-Key` header, Bluum guarantees that only one operation executes — no matter how many times you send the same request.
+
+## How it works
+
+<Steps>
+  <Step title="Generate a unique key">
+    Before sending a request, generate a unique string to identify this specific operation. Use a UUID or a value derived from your internal transaction record.
+  </Step>
+  <Step title="Include the key in the request header">
+    Pass the key as the `Idempotency-Key` header alongside your normal `Authorization` and `Content-Type` headers.
+  </Step>
+  <Step title="Retry safely">
+    If the request fails or times out, resend it with the same key and the same body. Bluum returns the original response without reprocessing the operation.
+  </Step>
+</Steps>
+
+```bash
+curl -X POST "$BASE_URL/investors/$INVESTOR_ID/deposits" \
+  -H "Authorization: Basic $AUTH" \
+  -H "Content-Type: application/json" \
+  -H "Idempotency-Key: dep-abc123-unique-id" \
+  -d '{
+    "amount": "5000.00",
+    "currency": "USD",
+    "method": "ach",
+    "plaid_options": {
+      "item_id": "item_abc123",
+      "investor_id": "inv_1234567890"
+    }
+  }'
+```
+
+## When to use idempotency keys
+
+| Operation | Required | Why |
+|---|---|---|
+| Deposits | Yes | Prevent duplicate fund transfers |
+| Withdrawals | Yes | Prevent duplicate disbursements |
+| Orders | Recommended | Prevent duplicate trades (you can also use `client_order_id` as an alternative) |
+| Account creation | Optional | Account uniqueness is enforced by other means |
+| Read operations (GET) | Not needed | `GET` requests are naturally idempotent |
+
+## Generating keys
+
+Use any unique string. Common approaches:
+
+```javascript
+// Simple UUID
+const key = crypto.randomUUID();
+// e.g. "550e8400-e29b-41d4-a716-446655440000"
+
+// Prefixed with operation type for readability
+const key = `dep-${crypto.randomUUID()}`;
+// e.g. "dep-550e8400-e29b-41d4-a716-446655440000"
+
+// Derived from your business logic (user + operation + timestamp)
+const key = `dep-${userId}-${Date.now()}`;
+// e.g. "dep-usr_abc123-1718459400000"
+```
+
+<Tip>
+Prefix your keys with the operation type (`dep-` for deposits, `wdr-` for withdrawals, `ord-` for orders). This makes logs and debugging significantly easier when you're tracing a transaction across systems.
+</Tip>
+
+## Behavior
+
+Understanding exactly what Bluum does in each scenario helps you build the right retry logic.
+
+| Scenario | Result |
+|---|---|
+| First request with a given key | Processed normally; the response is stored alongside the key |
+| Retry with the same key and the same body | Original response returned immediately — the operation is **not** reprocessed |
+| Retry with the same key but a different body | Error — the key is already associated with a different request body |
+| Different key, same body | Processed as a brand-new request — this **will** create a duplicate operation |
+
+<Warning>
+If you send the same key with a different request body, Bluum returns an error rather than silently processing the new body. Always keep the request body identical across retries of the same operation.
+</Warning>
+
+## Key expiration
+
+Idempotency keys expire after **24 hours**. After expiration, the same key string can be reused for a new, unrelated request. In practice, generate a fresh key for every operation rather than relying on expiration windows.
+
+## Best practices
+
+<CardGroup cols={2}>
+  <Card title="One key per operation" icon="key">
+    Generate a fresh key for each distinct deposit or withdrawal. Never reuse a key from a previous operation, even if the amounts match.
+  </Card>
+  <Card title="Store keys locally" icon="database">
+    Persist the key alongside your internal transaction record. This lets you reproduce the exact retry request for debugging and auditing.
+  </Card>
+  <Card title="Stay consistent on retry" icon="arrows-rotate">
+    Always resend the exact same body with the same key. Any change to the request body will cause Bluum to return an error instead of the cached response.
+  </Card>
+  <Card title="Use descriptive prefixes" icon="tag">
+    Include the operation type in the key prefix (`dep-`, `wdr-`, `ord-`) so you can identify the operation from the key alone in logs.
+  </Card>
+</CardGroup>

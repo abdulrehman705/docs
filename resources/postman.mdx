@@ -1,0 +1,93 @@
+---
+title: "Bluum Finance API Postman Collection Setup and Usage"
+sidebarTitle: "Postman"
+description: "Import the Bluum Postman collection to run every API endpoint with pre-configured authentication, environment variables, and example payloads."
+---
+
+The Bluum Postman collection gives you 124 ready-to-run requests organized across 23 folders — one for each API domain. Import it, set three environment variables, and you're making live sandbox calls in under two minutes.
+
+## Quick setup
+
+<Steps>
+
+<Step title="Import the collection">
+
+Open the [Bluum Postman Collection](https://documenter.getpostman.com/view/40898431/2sBXVo97hh) and click **Run in Postman** to import it directly into your Postman workspace.
+
+</Step>
+
+<Step title="Set environment variables">
+
+Create a new Postman environment and add these three variables:
+
+| Variable | Value |
+| --- | --- |
+| `baseUrl` | `https://test-service.bluumfinance.com/v1` |
+| `apiKey` | Your sandbox API key |
+| `apiSecret` | Your sandbox API secret |
+
+Select the environment from the dropdown in the top-right corner of Postman before sending any requests.
+
+</Step>
+
+<Step title="Run your first request">
+
+Open the **Assets → List Assets** request and click **Send**. You should see a paginated list of tradable assets returned from the sandbox.
+
+</Step>
+
+</Steps>
+
+## Collection contents
+
+The collection is organized by API domain, with folders that map directly to the OpenAPI `tags` — so the collection always stays in sync with the spec.
+
+| Folder | Requests |
+| --- | --- |
+| **Investors** | Create, list, get, close investors; wallets, transactions, portfolio chart, trusted contact |
+| **Compliance** | Submit a check result, restart a workflow, poll workflow status |
+| **Funding Sources** | List / connect / disconnect funding sources, Plaid Link token, PATCH wire-payout details |
+| **Transfers** | Create, list, get, and cancel deposits and withdrawals; download wire-details PDF |
+| **Trading** | Order estimates, place / list / get / cancel orders |
+| **Positions** | List positions; get position detail |
+| **Assets** | Search, list, get-by-symbol, historical chart bars |
+| **Markets** | Reference data: status, calendar, halts, sessions |
+| **Market Data** | Quotes, snapshots, bars, search (paywalled) |
+| **Document Management** | Upload, list, get, download, delete documents |
+| **Webhooks** | Register, list, update, delete webhooks; list event types |
+| **Investor Profile / Dependents / Risk Assessment / Goals / Life Events / External Accounts / Financial Plan / Investment Policy** | Wealth platform onboarding and planning |
+| **Portfolio Management / Auto-Invest / Insights & Recommendations / Reports** | Wealth platform portfolio management |
+
+**Total: 23 folders, 124 requests.**
+
+## Collection variables
+
+The collection uses variables for resource IDs. After creating a resource, update the corresponding collection variable so subsequent requests in that flow reference it automatically:
+
+| Variable | Set after |
+| --- | --- |
+| `investor_id` | Creating an investor (prefixed `inv_…`) |
+| `document_id` | Uploading a document (prefixed `doc_…`) |
+| `order_id` | Placing an order (prefixed `ord_…`) |
+| `deposit_id` | Creating a deposit (prefixed `dep_…`) |
+| `withdrawal_id` | Creating a withdrawal (prefixed `wdr_…`) |
+| `id` | Funding source (prefixed `fs_…`) — used by PATCH / DELETE funding-source |
+| `webhook_id` | Registering a webhook |
+| `portfolio_id` | Creating a portfolio |
+
+<Tip>
+  Use Postman's **Tests** tab to write a post-request script that automatically extracts the ID from each response and sets the corresponding collection variable. This lets you chain requests without manual copy-pasting.
+</Tip>
+
+## Switching environments
+
+To switch from sandbox to production:
+
+1. Create a new Postman environment
+2. Set `baseUrl` to `https://service.bluumfinance.com/v1`
+3. Enter your production API key and secret
+4. Select the production environment from the dropdown before sending requests
+
+<Warning>
+  Production requests create real accounts and execute real trades. Confirm you have completed sandbox testing and received production access approval before switching environments.
+</Warning>

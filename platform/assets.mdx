@@ -1,0 +1,169 @@
+---
+title: "Assets & Market Data — Live Quotes, Bars & Calendars"
+sidebarTitle: "Assets"
+description: "Search tradable securities, retrieve real-time quotes, OHLCV bars, snapshots, and chart data. Check market status and trading calendars via the Bluum API."
+---
+
+Assets are the tradable instruments available through Bluum — stocks, ETFs, and other securities. Market Data provides real-time and historical pricing, market status, and trading calendars to power the investment experience in your product.
+
+## Asset classes
+
+| Class | Description | Markets |
+|---|---|---|
+| `us_equity` | US-listed stocks and ETFs | XNAS (NASDAQ), XNYS (NYSE) |
+
+## Searching assets
+
+Find assets by symbol, name, or filters before placing orders or displaying holdings.
+
+<CodeGroup>
+```bash Search by symbol or name
+curl -X GET "$BASE_URL/assets/search?q=apple" \
+  -H "Authorization: Basic $AUTH"
+```
+
+```bash List tradable US equities
+curl -X GET "$BASE_URL/assets?asset_class=us_equity&tradable=true" \
+  -H "Authorization: Basic $AUTH"
+```
+
+```bash Get a specific asset by symbol
+curl -X GET "$BASE_URL/assets/AAPL" \
+  -H "Authorization: Basic $AUTH"
+```
+</CodeGroup>
+
+### Asset object
+
+A successful `GET /assets/{symbol}` returns an asset object like the following:
+
+```json
+{
+  "id": "6c5b2403-24a9-4b55-a3dd-5cb1e4b50da6",
+  "symbol": "AAPL",
+  "name": "Apple Inc.",
+  "class": "us_equity",
+  "exchange": "NASDAQ",
+  "status": "active",
+  "tradable": true,
+  "fractionable": true
+}
+```
+
+<ResponseField name="id" type="string">
+  Unique asset identifier (UUID).
+</ResponseField>
+
+<ResponseField name="symbol" type="string">
+  Ticker symbol (e.g., `AAPL`).
+</ResponseField>
+
+<ResponseField name="name" type="string">
+  Full legal name of the company or fund.
+</ResponseField>
+
+<ResponseField name="class" type="string">
+  Asset class. Currently `us_equity` for US-listed stocks and ETFs.
+</ResponseField>
+
+<ResponseField name="exchange" type="string">
+  Primary listing exchange (e.g., `NASDAQ`, `NYSE`).
+</ResponseField>
+
+<ResponseField name="status" type="string">
+  Whether the asset is `active` or not currently available for trading.
+</ResponseField>
+
+<ResponseField name="tradable" type="boolean">
+  `true` if the asset can be traded through Bluum. Always verify this before submitting an order.
+</ResponseField>
+
+<ResponseField name="fractionable" type="boolean">
+  `true` if fractional shares are supported. Fractional support enables notional-dollar orders.
+</ResponseField>
+
+<Note>
+Always check `tradable: true` before placing an order. An asset may be listed but temporarily unavailable for trading due to regulatory halts or corporate actions.
+</Note>
+
+## Market data
+
+### Quotes
+
+Get the latest bid, ask, and last-trade price for any asset:
+
+```bash
+curl -X GET "$BASE_URL/market-data/assets/AAPL/quote" \
+  -H "Authorization: Basic $AUTH"
+```
+
+### Historical bars (OHLCV)
+
+Retrieve open, high, low, close, and volume data for any time range and timeframe. Use this to power charts and backtesting:
+
+```bash
+curl -X GET "$BASE_URL/market-data/assets/AAPL/bars?timeframe=1Day&start=2025-01-01&end=2025-06-15" \
+  -H "Authorization: Basic $AUTH"
+```
+
+### Snapshots
+
+Get a complete market snapshot for an asset in a single call — includes the latest quote, most recent bar, and previous close:
+
+```bash
+curl -X GET "$BASE_URL/market-data/assets/AAPL/snapshot" \
+  -H "Authorization: Basic $AUTH"
+```
+
+<Tip>
+Use snapshots instead of making separate quote and bar calls when rendering a stock detail screen. One request gives you everything you need.
+</Tip>
+
+### Charts
+
+Get chart-ready OHLCV data for a symbol over a named period. The `period` parameter accepts shorthand values like `1D`, `1W`, `1M`, `3M`, `1Y`, and `YTD`:
+
+```bash
+curl -X GET "$BASE_URL/assets/chart?symbol=AAPL&timeframe=1Day&period=1M" \
+  -H "Authorization: Basic $AUTH"
+```
+
+## Market status and calendar
+
+Check whether a market is open right now, or retrieve the full trading calendar — including holiday closures and early-close days — for any date range.
+
+<CodeGroup>
+```bash List all markets
+curl -X GET "$BASE_URL/market-data/markets" \
+  -H "Authorization: Basic $AUTH"
+```
+
+```bash Check if NYSE is open
+curl -X GET "$BASE_URL/market-data/markets/XNYS/status" \
+  -H "Authorization: Basic $AUTH"
+```
+
+```bash Get the trading calendar for June 2025
+curl -X GET "$BASE_URL/market-data/markets/XNYS/calendar?start=2025-06-01&end=2025-06-30" \
+  -H "Authorization: Basic $AUTH"
+```
+</CodeGroup>
+
+<Info>
+Use the market code `XNYS` for NYSE and `XNAS` for NASDAQ when querying status and calendar endpoints.
+</Info>
+
+## Key endpoints
+
+| Method | Path | Description |
+|---|---|---|
+| `GET` | `/assets/search` | Search assets by name or symbol |
+| `GET` | `/assets` | List assets with filters |
+| `GET` | `/assets/{symbol}` | Get asset details |
+| `GET` | `/assets/chart` | Get chart-ready OHLCV data |
+| `GET` | `/market-data/assets/{symbol}/quote` | Latest quote |
+| `GET` | `/market-data/assets/{symbol}/bars` | Historical OHLCV bars |
+| `GET` | `/market-data/assets/{symbol}/snapshot` | Full market snapshot |
+| `GET` | `/market-data/markets` | List all markets |
+| `GET` | `/market-data/markets/{code}/status` | Market open/closed status |
+| `GET` | `/market-data/markets/{code}/calendar` | Trading calendar |

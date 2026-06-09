@@ -1,0 +1,86 @@
+---
+title: "Bluum Finance REST API Reference: Endpoints Overview"
+sidebarTitle: "Introduction"
+description: "Base URLs, authentication, all 10 endpoint groups, API conventions, and interactive playground instructions for the Bluum Finance REST API."
+---
+
+The Bluum Finance API is a REST API that returns JSON. This section contains the auto-generated reference for every endpoint — request parameters, response schemas, and interactive examples you can run directly against the sandbox. Use the navigation on the left to browse endpoints by group, or start here to understand the conventions that apply across the entire API.
+
+## Base URLs
+
+Every request goes to one of the following base URLs depending on your environment:
+
+| Environment | Base URL |
+| --- | --- |
+| **Sandbox** | `https://test-service.bluumfinance.com/v1` |
+| **Production** | `https://service.bluumfinance.com/v1` |
+
+<Note>
+  Always use the sandbox URL during development. Sandbox requests create simulated data only — no real trades or money movements occur.
+</Note>
+
+## Authentication
+
+All requests use HTTP Basic Auth. Pass your **API Key** as the username and your **API Secret** as the password. See the [Authentication](/platform/authentication) guide for implementation details and credential management.
+
+## Endpoint groups
+
+The API is organized into 10 groups:
+
+| Group | Description |
+| --- | --- |
+| **Accounts** | Create, read, and manage investment accounts |
+| **Documents** | Upload and track KYC verification documents |
+| **Trading** | Place and manage orders |
+| **Positions** | View account holdings and P&L |
+| **Assets** | Search and list tradable instruments |
+| **Funding Sources** | Link bank accounts via Plaid |
+| **Transfers** | Deposits and withdrawals |
+| **Market Data** | Quotes, bars, snapshots, and market status |
+| **Webhooks** | Event notification management |
+| **Wealth Management** | Profiles, risk assessments, goals, portfolios, and insights |
+
+## Conventions
+
+These conventions apply to every endpoint in the API.
+
+**Decimal values** are represented as strings to preserve precision:
+```json
+{ "amount": "178.50" }
+```
+
+**Dates** use ISO 8601 format with UTC timezone:
+```json
+{ "created_at": "2025-06-15T14:30:00Z" }
+```
+
+**IDs** are UUID v4 format:
+```json
+{ "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890" }
+```
+
+**Errors** follow the `BLUM-{STATUS}-{SEQ}` pattern — see the [Error Code Reference](/resources/error-codes) for the complete catalog.
+
+**Rate limits** — Sandbox: 10 requests/second · Production: 25 requests/second. Exceeded limits return `429` with a `Retry-After` header.
+
+## Interactive playground
+
+Each endpoint page includes an interactive playground. Enter your API Key and Secret in the authentication fields, fill in any required parameters, and click **Send** to make a live request against the sandbox. The response displays inline with the full headers and body.
+
+<Tip>
+  The playground is the fastest way to explore a new endpoint. Try a `GET` request before writing any code to confirm you understand the response shape.
+</Tip>
+
+## Additional resources
+
+<CardGroup cols={3}>
+  <Card title="Postman Collection" icon="satellite-dish" href="/resources/postman">
+    124 pre-built requests for every endpoint, ready to run
+  </Card>
+  <Card title="SDKs & Code Generation" icon="code" href="/resources/sdks">
+    Client libraries and OpenAPI-based code generation
+  </Card>
+  <Card title="Error Code Reference" icon="triangle-exclamation" href="/resources/error-codes">
+    Complete error catalog with resolution guidance
+  </Card>
+</CardGroup>

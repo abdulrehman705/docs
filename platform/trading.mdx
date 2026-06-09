@@ -1,0 +1,190 @@
+---
+title: "Trading — Place & Manage Orders | Bluum Finance API"
+sidebarTitle: "Trading"
+description: "Buy and sell securities through the Bluum API. Covers order types, time-in-force, order lifecycle, placing orders, commissions, and client order IDs."
+---
+
+Trading lets your users buy and sell securities through the Bluum API. You submit an order, Bluum routes it to the appropriate exchange via the custodian network, and you receive real-time status updates as the order moves through its lifecycle.
+
+## Order types
+
+Choose the order type that matches your user's intent. Each type controls how and when execution happens.
+
+| Type | Description | Required fields |
+|---|---|---|
+| `market` | Execute immediately at the current market price | `qty` or `notional` |
+| `limit` | Execute only at the specified price or better | `qty`, `limit_price` |
+| `stop` | Trigger a market order when the price hits the stop level | `qty`, `stop_price` |
+| `stop_limit` | Trigger a limit order when the price hits the stop level | `qty`, `stop_price`, `limit_price` |
+| `trailing_stop` | Stop price trails the market price by a fixed amount or percentage | `qty`, `trail_price` or `trail_percent` |
+
+## Order sides
+
+| Side | Description |
+|---|---|
+| `buy` | Purchase shares |
+| `sell` | Sell shares you own |
+
+## Quantity vs notional
+
+You can specify order size in two ways:
+
+- **`qty`** — Number of shares to trade (e.g., `"10"` for exactly 10 shares).
+- **`notional`** — Dollar amount to invest (e.g., `"1000.00"` to put exactly $1,000 to work).
+
+<Note>
+Notional orders may result in fractional share purchases when the dollar amount doesn't divide evenly into whole shares. Notional sizing is only available for `market` orders and requires the asset to be `fractionable`.
+</Note>
+
+## Time in force
+
+Time-in-force controls how long an order remains active if it isn't immediately filled.
+
+| Value | Meaning |
+|---|---|
+| `day` | Valid for the current trading day. Canceled at market close if unfilled. |
+| `gtc` | Good 'til canceled. Remains active across sessions until filled or explicitly canceled. |
+| `ioc` | Immediate or cancel. Fill what you can right now, cancel the rest. |
+| `fok` | Fill or kill. Fill the entire order immediately, or cancel it entirely. |
+
+## Order lifecycle
+
+Orders move through a defined set of statuses from submission to completion. The diagram below shows the normal flow.
+
+```
+accepted → filled
+    │         │
+    │    partially_filled
+    │
+canceled / rejected
+```
+
+| Status | Meaning |
+|---|---|
+| `accepted` | Order received and queued for execution |
+| `partially_filled` | Some shares executed; remainder still active |
+| `filled` | Order fully executed |
+| `canceled` | Order canceled by user or system |
+| `rejected` | Order rejected (insufficient funds, invalid symbol, or market closed) |
+
+<Tip>
+Subscribe to `order.*` webhooks to receive status changes in real time instead of polling the orders endpoint.
+</Tip>
+
+## Placing an order
+
+To place an order, send a `POST` request to the investor's orders endpoint with the required fields for your chosen order type.
+
+<Steps>
+  <Step title="Choose your order type and side">
+    Decide whether to use `market`, `limit`, `stop`, `stop_limit`, or `trailing_stop`, and set `side` to `buy` or `sell`.
+  </Step>
+  <Step title="Set the size">
+    Provide either `quantity` (number of shares) or `notional` (dollar amount). Use `notional` only with `market` orders.
+  </Step>
+  <Step title="Submit the request">
+    Send the request with your `Authorization` header and wait for the response containing the new order ID and initial status.
+  </Step>
+</Steps>
+
+<CodeGroup>
+```bash Market order (quantity)
+curl -X POST "$BASE_URL/investors/$INVESTOR_ID/orders" \
+  -H "Authorization: Basic $AUTH" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "symbol": "AAPL",
+    "side": "buy",
+    "type": "market",
+    "time_in_force": "day",
+    "quantity": "10"
+  }'
+```
+
+```bash Limit order with commission
+curl -X POST "$BASE_URL/investors/$INVESTOR_ID/orders" \
+  -H "Authorization: Basic $AUTH" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "symbol": "MSFT",
+    "side": "buy",
+    "type": "limit",
+    "quantity": "5",
+    "limit_price": "350.00",
+    "time_in_force": "gtc",
+    "client_order_id": "my-order-001",
+    "commission": "1.00",
+    "commission_type": "notional"
+  }'
+```
+</CodeGroup>
+
+### Response
+
+A successful request returns `201 Created` with the new order object:
+
+```json
+{
+  "id": "ord_x9y8z7a6b5c4d3e2",
+  "symbol": "AAPL",
+  "quantity": "10",
+  "side": "buy",
+  "type": "market",
+  "time_in_force": "day",
+  "status": "pending",
+  "filled_quantity": "0",
+  "average_price": "0.00",
+  "submitted_at": "2025-06-15T14:30:00Z"
+}
+```
+
+## Market hours
+
+US equity markets are open Monday–Friday, **9:30 AM – 4:00 PM Eastern Time**, excluding public holidays.
+
+- Market orders placed outside market hours are queued and execute at the next open.
+- Limit and stop orders with `gtc` remain active across sessions.
+- Use the [Assets & Market Data](/platform/assets) endpoints to check current market status and the trading calendar.
+
+<Warning>
+Orders submitted when markets are closed will not execute until the next session opens. Always check market status before placing time-sensitive orders.
+</Warning>
+
+## Commission and fees
+
+Attach a commission to any order to charge your users a fee. Commission fields are optional — when included, they appear in the order response.
+
+| Field | Type | Description |
+|---|---|---|
+| `commission` | string | Commission amount (e.g., `"1.00"`) |
+| `commission_type` | string | Calculation method: `notional` (per order, default), `qty` (per share, pro-rated), or `bps` (basis points, up to 2 decimal places) |
+
+## Client order IDs
+
+Use `client_order_id` to attach your own identifier to an order for reconciliation with your internal systems. The value must be unique per order within your tenant.
+
+```json
+{
+  "symbol": "MSFT",
+  "side": "buy",
+  "type": "limit",
+  "quantity": "5",
+  "limit_price": "350.00",
+  "time_in_force": "gtc",
+  "client_order_id": "my-order-001",
+  "commission": "1.00",
+  "commission_type": "notional"
+}
+```
+
+<Tip>
+`client_order_id` can also serve as an idempotency mechanism for orders — if you retry an order submission with the same `client_order_id`, you can detect the duplicate in your reconciliation logic. For stronger guarantees, also include an `Idempotency-Key` header (see [Idempotency](/platform/idempotency)).
+</Tip>
+
+## Key endpoints
+
+| Method | Path | Description |
+|---|---|---|
+| `POST` | `/investors/{investor_id}/orders` | Place an order |
+| `GET` | `/investors/{investor_id}/orders` | List all orders for an investor |
+| `GET` | `/trading/orders/{order_id}` | Get order details by order ID |

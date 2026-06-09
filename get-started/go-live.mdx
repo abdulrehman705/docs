@@ -1,0 +1,197 @@
+---
+title: "Go Live: Deploy Your Bluum Finance Integration to Production"
+sidebarTitle: "Go Live"
+description: "Complete the production readiness checklist, request production credentials, deploy to the live Bluum environment, and configure observability."
+---
+
+Moving from sandbox to production involves three things: confirming your integration is solid, requesting production credentials from the Bluum team, and deploying with proper observability in place. This page walks you through each step.
+
+## Production readiness checklist
+
+Complete every item below before requesting production access. The Bluum team will review your sandbox integration as part of the approval process.
+
+<Steps>
+  <Step title="Integration tested in sandbox">
+    Your integration handles the full lifecycle you plan to support in production:
+
+    - [ ] Account creation and KYC verification
+    - [ ] Bank account linking and funding
+    - [ ] Order placement, status tracking, and fills
+    - [ ] Withdrawal processing
+    - [ ] Error handling for all failure scenarios
+    - [ ] Webhook event processing (if using webhooks)
+  </Step>
+
+  <Step title="Idempotency keys implemented">
+    All deposit and withdrawal requests include an `Idempotency-Key` header to prevent duplicate transfers on retry.
+
+    ```bash
+    curl -X POST "$BASE_URL/investors/$INVESTOR_ID/deposits" \
+      -H "Authorization: Basic $AUTH" \
+      -H "Content-Type: application/json" \
+      -H "Idempotency-Key: dep-$(uuidgen)" \
+      -d '{ ... }'
+    ```
+
+    <Warning>
+      Missing idempotency keys on financial operations is a production blocker. Every deposit and withdrawal request must include a unique `Idempotency-Key` header.
+    </Warning>
+  </Step>
+
+  <Step title="Error handling is robust">
+    Your integration handles every failure class:
+
+    | Status | Scenario | Recommended handling |
+    |---|---|---|
+    | `401` | Authentication failure | Check credentials; alert on repeated failures |
+    | `429` | Rate limit exceeded | Exponential backoff with jitter |
+    | `400` | Validation error | Surface to user or log for debugging |
+    | `500` | Server error | Retry with backoff; alert on repeated failures |
+    | Timeout | Network timeout | Retry with the original idempotency key |
+
+    See [Error Handling](/platform/errors) for the complete error model.
+  </Step>
+
+  <Step title="Webhook endpoints secured">
+    If you use webhooks, confirm all of the following:
+
+    - [ ] Endpoint is HTTPS only
+    - [ ] Webhook signatures are verified before processing
+    - [ ] Your handler responds with `2xx` within 30 seconds
+    - [ ] Duplicate deliveries are handled idempotently
+    - [ ] You have alerting on delivery failures
+
+    See [Webhooks](/platform/webhooks) for implementation details.
+  </Step>
+
+  <Step title="Credentials stored securely">
+    - [ ] API keys and secrets are stored in a secret manager (not in code or config files)
+    - [ ] Credentials are scoped to service accounts, not individual developers
+    - [ ] You have a key rotation process ready and documented
+  </Step>
+
+  <Step title="Compliance requirements met">
+    Contact your Bluum account manager to confirm:
+
+    - [ ] Your KYC document collection meets regulatory requirements
+    - [ ] Required disclosures and agreements are presented to end users
+    - [ ] Your record-keeping meets applicable regulations
+  </Step>
+</Steps>
+
+---
+
+## Requesting production access
+
+Once you've completed the checklist, email `support@bluum.finance` with the following:
+
+1. Your company name and dashboard account email
+2. A description of your product and integration model (Self-Directed or Wealth Management)
+3. Confirmation that you've completed the readiness checklist above
+
+Bluum reviews your sandbox integration and compliance setup, then issues production API credentials upon approval.
+
+---
+
+## Deploying to production
+
+<Steps>
+  <Step title="Update your environment configuration">
+    Switch your base URL and credentials to production values:
+
+    ```bash
+    export BLUUM_BASE_URL="https://service.bluumfinance.com/v1"
+    export BLUUM_API_KEY="your_production_key"
+    export BLUUM_API_SECRET="your_production_secret"
+    ```
+  </Step>
+
+  <Step title="Run a smoke test">
+    Verify connectivity with a read-only request before processing any real user operations:
+
+    ```bash
+    curl -X GET "$BLUUM_BASE_URL/assets?asset_class=us_equity&tradable=true" \
+      -H "Authorization: Basic $(echo -n "$BLUUM_API_KEY:$BLUUM_API_SECRET" | base64)"
+    ```
+
+    Confirm you receive a `200` response. If you see a `401`, verify that both the key and secret have been updated and are correctly encoded.
+  </Step>
+
+  <Step title="Monitor initial operations">
+    Watch the first few production operations closely before scaling:
+
+    - [ ] First account creation and KYC flow
+    - [ ] First deposit and order
+    - [ ] Webhook delivery to your production endpoint
+
+    Log the `X-Request-Id` header from every response. Include it in any support tickets to help the Bluum team trace requests quickly.
+  </Step>
+</Steps>
+
+---
+
+## Credential rotation
+
+Rotate API keys every 90 days. Follow this sequence to avoid downtime:
+
+<Steps>
+  <Step title="Generate a new key pair">
+    In your dashboard, navigate to **Settings > API Keys** and create a new key pair. Copy the secret immediately — it's only shown once.
+  </Step>
+  <Step title="Deploy the new credentials">
+    Update your production environment with the new key and secret. Verify that your application starts successfully and can reach the Bluum API.
+  </Step>
+  <Step title="Confirm connectivity">
+    Run the smoke test against production with the new credentials:
+
+    ```bash
+    curl -X GET "https://service.bluumfinance.com/v1/assets?asset_class=us_equity&tradable=true" \
+      -H "Authorization: Basic $(echo -n "$BLUUM_API_KEY:$BLUUM_API_SECRET" | base64)"
+    ```
+  </Step>
+  <Step title="Revoke the old key">
+    Only after confirming the new credentials work, revoke the old key pair from **Settings > API Keys** in the dashboard.
+  </Step>
+</Steps>
+
+<Warning>
+  Never revoke the old key before verifying the new one. Generate, deploy, verify, then revoke — in that order.
+</Warning>
+
+---
+
+## Observability
+
+### Request logging
+
+Log every API request and response. At minimum, capture:
+
+- HTTP method and path
+- Response status code
+- `X-Request-Id` response header
+- Response time (latency)
+
+The `X-Request-Id` is the most important field — include it in every support ticket so the Bluum team can trace the request end-to-end.
+
+### Monitoring
+
+Set up alerts for the following conditions:
+
+| Condition | Why it matters |
+|---|---|
+| Elevated 5xx error rate | Indicates a Bluum-side or integration issue requiring attention |
+| Repeated 429 responses | Your application is hitting rate limits; apply backoff or reduce concurrency |
+| Orders stuck in `accepted` status | May indicate an exchange routing issue; escalate to support |
+| Webhook delivery failures | Events are being missed; your event-driven flows may be stalled |
+
+---
+
+## Support
+
+Reach the Bluum team through the appropriate channel for your issue:
+
+| Channel | Use for |
+|---|---|
+| `support@bluum.finance` | Credentials, access requests, compliance questions, general inquiries |
+| `ope@bluumfinance.com` | Integration help and technical questions |
+| Emergency trading desk: `+1 (415) 555-0112` | Urgent production issues during market hours (24/5) |

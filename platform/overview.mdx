@@ -1,0 +1,82 @@
+---
+title: "Bluum Platform: Overview of Core API Building Blocks"
+sidebarTitle: "Overview"
+description: "Explore every layer of the Bluum investment infrastructure API — from account creation and KYC through wallets, funding, trading, and wealth management."
+---
+
+The Bluum platform gives you a complete set of APIs for embedding investment experiences directly into your product. Every concept below is a core building block you'll use throughout your integration — from onboarding a user and verifying their identity, to placing trades and managing their portfolio.
+
+## Core Concepts
+
+These pages cover the fundamental primitives every Bluum integration depends on.
+
+<CardGroup cols={2}>
+  <Card title="Authentication" icon="lock" href="/platform/authentication">
+    Authenticate with HTTP Basic Auth using your API Key and Secret. Learn how to encode credentials, set required headers, and manage keys safely across environments.
+  </Card>
+  <Card title="Accounts" icon="user" href="/platform/accounts">
+    Investment accounts are the root object connecting wallets, orders, and positions. Learn about account types, lifecycle statuses, required fields, and management modes.
+  </Card>
+  <Card title="Compliance & KYC" icon="shield-check" href="/platform/compliance-kyc">
+    Every account must complete Know Your Customer verification before trading. Learn how to upload identity documents, track verification status, and handle rejections.
+  </Card>
+  <Card title="Wallets" icon="wallet" href="/platform/wallets">
+    Wallets hold cash balances for investment accounts. Understand wallet types, how money flows, holds, balance fields, and the transaction ledger.
+  </Card>
+  <Card title="Funding & Transfers" icon="building-columns" href="/platform/funding">
+    Move money between a user's bank account and their wallet via ACH or manual bank transfer. Learn the Plaid Link flow, deposit lifecycle, and idempotency requirements.
+  </Card>
+  <Card title="Trading" icon="chart-line" href="/platform/trading">
+    Place buy and sell orders, work with fractional shares, and understand order lifecycle, types, and market hours.
+  </Card>
+</CardGroup>
+
+## Wealth Management
+
+Use these APIs when you need managed portfolios, financial planning, or robo-advisory capabilities on top of the core platform.
+
+<CardGroup cols={2}>
+  <Card title="Overview" icon="layer-group" href="/get-started/quick-start-wealth">
+    Learn how Bluum's wealth management APIs work together to power advised investment experiences.
+  </Card>
+  <Card title="Investor Profile" icon="address-card" href="/get-started/quick-start-wealth">
+    Capture the investor's full financial picture — income, net worth, investment experience, and objectives.
+  </Card>
+  <Card title="Risk Assessment" icon="gauge" href="/get-started/quick-start-wealth">
+    Score risk tolerance through a questionnaire-based workflow and map scores to model portfolios.
+  </Card>
+  <Card title="Financial Planning" icon="bullseye-arrow" href="/get-started/quick-start-wealth">
+    Define goals, life events, and dependents, then generate a personalized financial plan.
+  </Card>
+  <Card title="Portfolio Management" icon="briefcase" href="/get-started/quick-start-wealth">
+    Assign managed portfolios, generate an Investment Policy Statement, and automate rebalancing, auto-invest, and DRIP.
+  </Card>
+  <Card title="Insights & Recommendations" icon="lightbulb" href="/get-started/quick-start-wealth">
+    Surface portfolio insights, tax optimization opportunities, and reporting for your users.
+  </Card>
+</CardGroup>
+
+## Infrastructure
+
+<CardGroup cols={3}>
+  <Card title="Webhooks" icon="bell" href="/platform/webhooks">
+    Receive real-time event notifications for account updates, KYC completions, order fills, and more.
+  </Card>
+  <Card title="Error Handling" icon="triangle-exclamation" href="/platform/errors">
+    Understand Bluum error codes, rate limiting behavior, and retry strategies.
+  </Card>
+  <Card title="Idempotency" icon="rotate" href="/platform/idempotency">
+    Prevent duplicate operations on deposits and withdrawals by supplying an idempotency key.
+  </Card>
+</CardGroup>
+
+## Assets & Market Data
+
+<CardGroup cols={2}>
+  <Card title="Assets & Market Data" icon="chart-candlestick" href="/platform/assets">
+    Search tradable instruments, fetch quotes and price bars, and query the market calendar.
+  </Card>
+  <Card title="Positions" icon="arrow-trend-up" href="/platform/positions">
+    Track holdings, cost basis, current market value, and unrealized profit and loss.
+  </Card>
+</CardGroup>

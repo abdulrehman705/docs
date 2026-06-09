@@ -1,0 +1,95 @@
+{
+  "$schema": "https://mintlify.com/docs.json",
+  "theme": "luma",
+  "name": "Bluum Finance",
+  "colors": {
+    "primary": "#9ca08c",
+    "light": "#3d4625",
+    "dark": "#d0d5cd"
+  },
+  "favicon": "https://media.brand.dev/802ba7bd-9e7d-4c59-8c52-3121d0ce85e1.png",
+  "logo": {
+    "light": "https://media.brand.dev/5f24b2ea-4488-444f-aac0-d4d8ffcdb8b0.svg",
+    "dark": "https://media.brand.dev/9b31d3ea-66d8-40a6-b6c5-5e5edf0dd4d9.svg"
+  },
+  "navbar": {
+    "primary": {
+      "type": "button",
+      "label": "Dashboard",
+      "href": "https://dashboard.bluumfinance.com/login"
+    }
+  },
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Get Started",
+            "pages": [
+              "get-started/welcome",
+              "get-started/sandbox",
+              "get-started/quick-start-self-directed",
+              "get-started/quick-start-wealth",
+              "get-started/go-live"
+            ]
+          },
+          {
+            "group": "Platform",
+            "pages": [
+              "platform/overview",
+              "platform/authentication",
+              "platform/accounts",
+              "platform/compliance-kyc",
+              "platform/wallets",
+              "platform/funding",
+              "platform/trading",
+              "platform/assets",
+              "platform/positions",
+              "platform/webhooks",
+              "platform/errors",
+              "platform/idempotency"
+            ]
+          },
+          {
+            "group": "Guides",
+            "pages": [
+              "guides/overview",
+              "guides/self-directed/account-onboarding",
+              "guides/self-directed/kyc-verification",
+              "guides/self-directed/bank-linking",
+              "guides/self-directed/deposits-withdrawals",
+              "guides/self-directed/placing-orders",
+              "guides/self-directed/positions-portfolio",
+              "guides/operations/webhook-setup",
+              "guides/operations/market-data",
+              "guides/operations/testing-and-sandbox"
+            ]
+          },
+          {
+            "group": "Resources",
+            "pages": [
+              "resources/sdks",
+              "resources/postman",
+              "resources/ai-tools",
+              "resources/error-codes",
+              "resources/glossary",
+              "resources/support"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "API Reference",
+        "groups": [
+          {
+            "group": "Overview",
+            "pages": [
+              "api-reference/introduction"
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

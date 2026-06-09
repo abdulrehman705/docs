@@ -1,0 +1,78 @@
+---
+title: "Bluum Finance: Embed Investing Into Your Product"
+sidebarTitle: "Home"
+description: "Bluum Finance is the investment infrastructure API for fintech companies. Accounts, compliance, trading, and custody — through a single REST API."
+---
+
+Bluum Finance sits between your application and the financial system, handling account onboarding, identity verification, order execution, wallet management, and regulatory compliance. You build the user experience — Bluum provides the rails.
+
+<CardGroup cols={2}>
+  <Card title="Quick Start" icon="rocket" href="/get-started/welcome">
+    Set up your sandbox credentials and make your first API call in minutes.
+  </Card>
+  <Card title="Platform Concepts" icon="layer-group" href="/platform/overview">
+    Understand accounts, wallets, trading, and the core building blocks.
+  </Card>
+  <Card title="Integration Guides" icon="map" href="/guides/overview">
+    Step-by-step walkthroughs for every workflow from KYC to order execution.
+  </Card>
+  <Card title="API Reference" icon="code" href="/api-reference/introduction">
+    Full endpoint reference with request schemas and interactive examples.
+  </Card>
+</CardGroup>
+
+## Choose Your Integration Path
+
+Bluum supports two ways to embed investing, depending on your product.
+
+<CardGroup cols={2}>
+  <Card title="Self-Directed Investing" icon="chart-line" href="/get-started/quick-start-self-directed">
+    Let your users buy and sell stocks, ETFs, and fractional shares. You control the UI — Bluum handles accounts, compliance, custody, and order execution.
+
+    **Best for:** Trading apps, invest tabs, stock gifting, round-ups.
+  </Card>
+  <Card title="Wealth Management" icon="briefcase" href="/get-started/quick-start-wealth">
+    Offer managed portfolios, financial planning, risk assessments, and automated investing. Full wealth lifecycle through the API.
+
+    **Best for:** Robo-advisors, financial planner apps, employee benefits.
+  </Card>
+</CardGroup>
+
+## Get Up and Running
+
+<Steps>
+  <Step title="Create a dashboard account">
+    Sign up at [dashboard.bluumfinance.com](https://dashboard.bluumfinance.com/login) to get your sandbox API credentials. No approval required.
+  </Step>
+  <Step title="Make your first call">
+    Test your credentials by listing tradable assets from the sandbox environment.
+    ```bash
+    curl -X GET 'https://test-service.bluumfinance.com/v1/assets?asset_class=us_equity&tradable=true' \
+      -H 'Authorization: Basic '$(echo -n 'YOUR_API_KEY:YOUR_API_SECRET' | base64)
+    ```
+  </Step>
+  <Step title="Follow the Quick Start">
+    Walk through account creation, KYC, bank linking, and your first trade in under 30 minutes.
+  </Step>
+  <Step title="Go live">
+    Complete the [production readiness checklist](/get-started/go-live) and request production credentials.
+  </Step>
+</Steps>
+
+## Developer Resources
+
+<CardGroup cols={3}>
+  <Card title="Postman Collection" icon="cloud" href="/resources/postman">
+    Pre-built requests for every endpoint, ready to run.
+  </Card>
+  <Card title="Error Reference" icon="triangle-exclamation" href="/resources/error-codes">
+    Full catalog of error codes and troubleshooting steps.
+  </Card>
+  <Card title="AI Tools" icon="robot" href="/resources/ai-tools">
+    Use Claude Code, Cursor, or Windsurf with Bluum's API spec.
+  </Card>
+</CardGroup>
+
+<Note>
+  Ready to get started? [Create a dashboard account](https://dashboard.bluumfinance.com/login) to get your API credentials, or [contact us](mailto:ope@bluumfinance.com) for a guided onboarding.
+</Note>

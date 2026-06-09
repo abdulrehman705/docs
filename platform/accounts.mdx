@@ -1,0 +1,205 @@
+---
+title: "Investment Accounts: Types, Lifecycle & Configuration"
+sidebarTitle: "Accounts"
+description: "Create and manage Bluum investment accounts. Covers account types, management modes, lifecycle statuses, required fields, and links to wallets and orders."
+---
+
+An **Account** represents an investment account for one of your end users. It is the root object in the Bluum data model — everything else (wallets, orders, positions, and wealth management features) connects back to it. Creating an account is the first step in onboarding any investor.
+
+## Account Types
+
+Choose the account type that matches your user's ownership structure:
+
+| Type | Use case | Wealth APIs | Auto-creates |
+|---|---|---|---|
+| `individual` | Personal investment account — the most common type | Depends on `management_type` | Wallet (+ Investor Profile if `advised`) |
+| `joint` | Investment account shared by two or more individuals | Depends on `management_type` | Wallet (+ Investor Profile if `advised`) |
+| `corporate` | Corporate or business investment account | Depends on `management_type` | Wallet (+ Investor Profile if `advised`) |
+
+### Management Type
+
+The `management_type` field controls whether the account is self-directed or professionally managed:
+
+| Management type | Description | Wealth APIs available |
+|---|---|---|
+| `self_directed` | The user decides what to buy and sell (default) | No |
+| `advised` | Managed portfolios, financial planning, and robo-advisory | Yes |
+
+<Note>
+  Set `management_type: "advised"` to unlock wealth management APIs including Investor Profiles, Risk Assessments, Financial Plans, and Portfolios. Bluum automatically creates an Investor Profile when you create an `advised` account.
+</Note>
+
+## Account Lifecycle
+
+Accounts move through the following statuses from creation to active trading:
+
+```text
+Create Account → KYC Verification → Active → Trading
+                                      │        (orders, deposits,
+                                      │         withdrawals)
+                                      ▼
+                                  Inactive / Suspended
+```
+
+| Status | Meaning |
+|---|---|
+| `ACTIVE` | Account is open and can place orders and transfers. Sandbox accounts are immediately active. |
+| `INACTIVE` | Account has been deactivated. |
+| `SUSPENDED` | Account is temporarily suspended pending review. |
+
+<Info>
+  In sandbox, all accounts are immediately set to `ACTIVE` and KYC documents are auto-approved. In production, accounts become active after identity verification completes.
+</Info>
+
+## Required Fields
+
+You must supply the following fields when creating an account. Missing or invalid values return a validation error.
+
+### Contact
+
+<ParamField body="email_address" type="string" required>
+  The user's email address.
+</ParamField>
+
+<ParamField body="phone_number" type="string" required>
+  The user's phone number in E.164 format (e.g., `+14155551234`).
+</ParamField>
+
+<ParamField body="street_address" type="string[]" required>
+  An array of street address lines.
+</ParamField>
+
+<ParamField body="city" type="string" required>
+  The user's city.
+</ParamField>
+
+<ParamField body="state" type="string" required>
+  State or province code.
+</ParamField>
+
+<ParamField body="postal_code" type="string" required>
+  Postal or ZIP code.
+</ParamField>
+
+<ParamField body="country" type="string" required>
+  ISO 3166-1 alpha-2 country code (e.g., `US`).
+</ParamField>
+
+### Identity
+
+<ParamField body="first_name" type="string" required>
+  The user's legal first name, as it appears on their government-issued ID.
+</ParamField>
+
+<ParamField body="last_name" type="string" required>
+  The user's legal last name.
+</ParamField>
+
+<ParamField body="date_of_birth" type="string" required>
+  Date of birth in `YYYY-MM-DD` format.
+</ParamField>
+
+<ParamField body="tax_id" type="string" required>
+  Social Security Number (SSN) or Individual Taxpayer Identification Number (ITIN).
+</ParamField>
+
+<ParamField body="tax_id_type" type="string" required>
+  The type of tax ID. Accepted values: `SSN` or `ITIN`.
+</ParamField>
+
+<ParamField body="country_of_citizenship" type="string" required>
+  ISO 3166-1 alpha-2 country code for citizenship.
+</ParamField>
+
+<ParamField body="country_of_birth" type="string" required>
+  ISO 3166-1 alpha-2 country code for place of birth.
+</ParamField>
+
+<ParamField body="country_of_tax_residence" type="string" required>
+  ISO 3166-1 alpha-2 country code for tax residency.
+</ParamField>
+
+<ParamField body="funding_source" type="string[]" required>
+  An array of funding source identifiers indicating the source of the user's investment funds. Example values: `employment_income`, `investments`.
+</ParamField>
+
+### Disclosures
+
+All disclosure fields are boolean and required. They capture regulatory information about the user:
+
+<ParamField body="is_control_person" type="boolean" required>
+  `true` if the user is a control person of a publicly traded company (e.g., a director, officer, or 10%+ shareholder).
+</ParamField>
+
+<ParamField body="is_affiliated_exchange_or_finra" type="boolean" required>
+  `true` if the user is affiliated with a stock exchange or FINRA member firm.
+</ParamField>
+
+<ParamField body="is_politically_exposed" type="boolean" required>
+  `true` if the user is a politically exposed person (PEP).
+</ParamField>
+
+<ParamField body="immediate_family_exposed" type="boolean" required>
+  `true` if an immediate family member of the user is a politically exposed person.
+</ParamField>
+
+### Agreements
+
+The user must electronically sign at least the `investor_agreement`. Each agreement object requires:
+
+<ParamField body="agreement" type="string" required>
+  The agreement type identifier (e.g., `investor_agreement`).
+</ParamField>
+
+<ParamField body="agreed" type="boolean" required>
+  Must be `true`. A value of `false` will be rejected.
+</ParamField>
+
+<ParamField body="signed_at" type="string" required>
+  ISO 8601 timestamp of when the user agreed (e.g., `2024-01-15T10:30:00Z`).
+</ParamField>
+
+<ParamField body="ip_address" type="string" required>
+  The IP address of the user at the time of signing, for audit purposes.
+</ParamField>
+
+## Additional Account Fields
+
+These optional fields configure trading behavior and tax treatment for the account:
+
+| Field | Type | Default | Description |
+|---|---|---|---|
+| `tax_advantaged` | boolean | `false` | Set to `true` for tax-advantaged accounts (IRA, ISA, RRSP) |
+| `tax_designation` | string | `null` | Jurisdiction-specific designation: `traditional_ira`, `roth_ira`, `isa`, `rrsp` |
+| `trading_type` | string | `margin` | Trading type: `margin` or `cash` |
+| `enabled_assets` | string[] | `["us_equity"]` | Asset classes enabled for trading: `us_equity`, `us_option`, `crypto`, `bonds`, `etf`, `mutual_funds` |
+
+## Account Relationships
+
+An account is the hub object that connects to every other resource in the Bluum platform:
+
+```text
+Account
+  ├── Wallet (cash balance, deposits, withdrawals)
+  ├── Orders (buy/sell instructions)
+  ├── Positions (current holdings)
+  ├── Documents (KYC uploads)
+  ├── Funding Sources (linked bank accounts)
+  └── [Wealth Management — advised accounts only]
+      ├── Investor Profile
+      ├── Risk Assessments
+      ├── Goals & Life Events
+      ├── Financial Plan
+      ├── Investment Policy Statement
+      └── Portfolios
+```
+
+## Key Endpoints
+
+| Method | Path | Description |
+|---|---|---|
+| `POST` | `/accounts` | Create a new account |
+| `GET` | `/investors/{investor_id}` | Retrieve account details |
+| `GET` | `/accounts` | List all accounts |
+| `GET` | `/investors/{investor_id}/wallets` | Get the account's wallets |
+| `GET` | `/investors/{investor_id}/transactions` | Get the account's transaction history |

@@ -1,0 +1,174 @@
+---
+title: "Placing Orders: Market, Limit, Stop & Trailing Stop"
+sidebarTitle: "Placing Orders"
+description: "Place market, limit, stop, and trailing stop orders via the Bluum API. Includes buy-by-notional for fractional shares and full order status tracking."
+---
+
+Once a user's account is funded, they're ready to trade. Bluum supports four order types — market, limit, stop, and trailing stop — each suited for different trading strategies. This guide shows you how to submit each order type, track execution status, and handle common errors.
+
+## Market orders
+
+Market orders execute immediately at the current market price. Use them when your user wants fast execution and isn't concerned about getting a specific price.
+
+### Buy by quantity
+
+Purchase a fixed number of shares:
+
+```bash
+curl -X POST "$BASE_URL/investors/$INVESTOR_ID/orders" \
+  -H "Authorization: Basic $AUTH" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "symbol": "AAPL",
+    "side": "buy",
+    "type": "market",
+    "time_in_force": "day",
+    "quantity": "10"
+  }'
+```
+
+### Buy by dollar amount (fractional shares)
+
+Invest a fixed dollar amount in a stock — Bluum calculates the fractional share quantity automatically:
+
+```bash
+curl -X POST "$BASE_URL/investors/$INVESTOR_ID/orders" \
+  -H "Authorization: Basic $AUTH" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "symbol": "GOOGL",
+    "side": "buy",
+    "type": "market",
+    "time_in_force": "day",
+    "notional": "1000.00"
+  }'
+```
+
+<Note>
+  `notional` is only available for `market` orders on assets marked as `fractionable`. Check the asset's `fractionable` flag via `/assets/search` before presenting this option to users.
+</Note>
+
+## Limit orders
+
+Limit orders execute only at your specified price or better. Use them when your user wants price control and is willing to wait (or potentially not fill at all).
+
+```bash
+curl -X POST "$BASE_URL/investors/$INVESTOR_ID/orders" \
+  -H "Authorization: Basic $AUTH" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "symbol": "MSFT",
+    "side": "buy",
+    "type": "limit",
+    "time_in_force": "gtc",
+    "quantity": "5",
+    "limit_price": "350.00",
+    "client_order_id": "my-limit-001"
+  }'
+```
+
+Use `time_in_force: "gtc"` (Good Till Canceled) to keep the order open across trading sessions until it fills or the user cancels it.
+
+## Stop orders
+
+Stop orders trigger a market order when the asset's price reaches your `stop_price`. Use them as stop-loss orders to limit downside risk.
+
+```bash
+# Stop-loss: sell AAPL if price drops to $170
+curl -X POST "$BASE_URL/investors/$INVESTOR_ID/orders" \
+  -H "Authorization: Basic $AUTH" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "symbol": "AAPL",
+    "side": "sell",
+    "type": "stop",
+    "time_in_force": "gtc",
+    "quantity": "10",
+    "stop_price": "170.00"
+  }'
+```
+
+## Trailing stop orders
+
+Trailing stop orders set a stop price that automatically follows the market price upward by a fixed percentage offset. When the price reverses and drops by `trail_percent` from its peak, the sell triggers.
+
+```bash
+# Sell AAPL if it drops 5% from its highest point since the order was placed
+curl -X POST "$BASE_URL/investors/$INVESTOR_ID/orders" \
+  -H "Authorization: Basic $AUTH" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "symbol": "AAPL",
+    "side": "sell",
+    "type": "trailing_stop",
+    "time_in_force": "gtc",
+    "quantity": "10",
+    "trail_percent": "5.0"
+  }'
+```
+
+## Tracking order status
+
+Retrieve a single order or list all orders for an investor:
+
+<CodeGroup>
+```bash Get a specific order
+curl -X GET "$BASE_URL/investors/$INVESTOR_ID/orders/$ORDER_ID" \
+  -H "Authorization: Basic $AUTH"
+```
+
+```bash List all orders
+curl -X GET "$BASE_URL/investors/$INVESTOR_ID/orders" \
+  -H "Authorization: Basic $AUTH"
+```
+</CodeGroup>
+
+### Status flow
+
+Orders move through the following statuses:
+
+```text
+accepted → filled
+    │         │
+    │    partially_filled
+    │
+canceled / rejected
+```
+
+| Status | Meaning |
+|--------|---------|
+| `accepted` | Order received and queued for execution |
+| `partially_filled` | Some shares have filled; the rest is still open |
+| `filled` | Entire order has executed |
+| `canceled` | Order was canceled before filling |
+| `rejected` | Order was rejected (see error details in the response) |
+
+Subscribe to `order.*` webhook events for real-time notifications on every status transition:
+
+```bash
+curl -X POST "$BASE_URL/webhooks" \
+  -H "Authorization: Basic $AUTH" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "url": "https://your-app.com/webhooks/bluum",
+    "events": ["order.*"]
+  }'
+```
+
+## Order type comparison
+
+| Type | Best for | Price guarantee | Fill guarantee |
+|------|----------|----------------|----------------|
+| `market` | Quick execution | No | High (during market hours) |
+| `limit` | Price control | Yes (or better) | No — may not fill |
+| `stop` | Loss protection | No | No — triggers at stop price |
+| `trailing_stop` | Dynamic downside protection | No | No — adjusts with market |
+
+## Common errors
+
+| Error | Cause | Resolution |
+|-------|-------|-----------|
+| Insufficient funds | Wallet balance is too low for the order | Prompt the user to [deposit more funds](/guides/self-directed/deposits-withdrawals) |
+| Market closed | Order placed outside trading hours | Use `time_in_force: "gtc"` or inform the user to retry when markets open |
+| Invalid symbol | Asset not found or not tradable on Bluum | Verify the symbol using `/assets/search` |
+| Invalid quantity | Zero, negative, or exceeds position size (for sells) | Check the quantity value and the user's current [position](/guides/self-directed/positions-portfolio) |

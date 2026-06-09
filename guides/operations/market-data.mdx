@@ -1,0 +1,155 @@
+---
+title: "Querying Real-Time and Historical Market Data in Bluum"
+sidebarTitle: "Market Data"
+description: "Fetch real-time quotes, historical OHLCV bars, market snapshots, and trading calendars to power price charts and portfolio valuations."
+---
+
+Bluum's market data APIs give you everything you need to build compelling trading interfaces — from live bid/ask quotes and historical candlestick data to market-open indicators and full asset snapshots. This guide shows you how to query each endpoint and combine them into a production-ready stock detail page.
+
+## Asset discovery
+
+Before displaying price data, find the assets your users want to trade. Bluum provides three ways to look up assets.
+
+### Search by name or symbol
+
+Use the search endpoint to let users type a company name or ticker and retrieve matching results:
+
+```bash
+curl -X GET "$BASE_URL/assets/search?q=tesla" \
+  -H "Authorization: Basic $AUTH"
+```
+
+The response includes each asset's symbol, name, exchange, and tradability status.
+
+### List with filters
+
+Fetch all assets in a category using query parameters. The example below returns every tradable US equity:
+
+```bash
+# All tradable US equities
+curl -X GET "$BASE_URL/assets?asset_class=us_equity&tradable=true" \
+  -H "Authorization: Basic $AUTH"
+```
+
+### Get asset details
+
+Retrieve full metadata for a single asset by its symbol:
+
+```bash
+curl -X GET "$BASE_URL/assets/TSLA" \
+  -H "Authorization: Basic $AUTH"
+```
+
+## Real-time quotes
+
+Get the latest bid, ask, and last-trade price for any asset:
+
+```bash
+curl -X GET "$BASE_URL/market-data/assets/AAPL/quote" \
+  -H "Authorization: Basic $AUTH"
+```
+
+Use real-time quotes to:
+
+- Display current prices in your UI
+- Calculate portfolio market value
+- Show pre-trade price estimates for order tickets
+
+## Historical bars (OHLCV)
+
+Retrieve open, high, low, close, and volume data for chart rendering or backtesting:
+
+```bash
+curl -X GET "$BASE_URL/market-data/assets/AAPL/bars?timeframe=1Day&start=2025-01-01&end=2025-06-15" \
+  -H "Authorization: Basic $AUTH"
+```
+
+### Timeframes
+
+Choose the granularity that matches your use case:
+
+| Value | Description |
+| --- | --- |
+| `1Min` | 1-minute bars (intraday) |
+| `5Min` | 5-minute bars (intraday) |
+| `15Min` | 15-minute bars (intraday) |
+| `1Hour` | Hourly bars |
+| `1Day` | Daily bars |
+| `1Week` | Weekly bars |
+| `1Month` | Monthly bars |
+
+<Note>
+  Intraday bars (`1Min`, `5Min`, `15Min`) are only available for recent history. Use `1Day` or larger timeframes for multi-year ranges.
+</Note>
+
+## Chart data
+
+The chart endpoint returns pre-formatted data ready for plotting, using a simplified period syntax instead of explicit date ranges:
+
+```bash
+# 1 month of daily data
+curl -X GET "$BASE_URL/assets/chart?symbol=AAPL&timeframe=1Day&period=1M" \
+  -H "Authorization: Basic $AUTH"
+
+# 1 year of weekly data
+curl -X GET "$BASE_URL/assets/chart?symbol=AAPL&timeframe=1Week&period=1Y" \
+  -H "Authorization: Basic $AUTH"
+```
+
+## Market snapshots
+
+A snapshot bundles the current quote, latest bar, and previous close into a single response — ideal when you need all three data points at once:
+
+```bash
+curl -X GET "$BASE_URL/market-data/assets/AAPL/snapshot" \
+  -H "Authorization: Basic $AUTH"
+```
+
+Snapshots are particularly useful for building asset detail pages that show current price, daily change percentage, and trading volume without making multiple sequential requests.
+
+## Market status
+
+### Check if a market is open
+
+Query the status of a specific market exchange to determine whether trading is currently active:
+
+```bash
+curl -X GET "$BASE_URL/market-data/markets/XNYS/status" \
+  -H "Authorization: Basic $AUTH"
+```
+
+Use the market status response to:
+
+- Show **Market Open** / **Market Closed** indicators in your UI
+- Disable order placement outside market hours for `day` orders
+- Display a countdown timer to market open or close
+
+### Trading calendar
+
+Retrieve open and close times, early closes, and holidays for any date range:
+
+```bash
+curl -X GET "$BASE_URL/market-data/markets/XNYS/calendar?start=2025-06-01&end=2025-06-30" \
+  -H "Authorization: Basic $AUTH"
+```
+
+### Market codes
+
+| Code | Market |
+| --- | --- |
+| `XNYS` | New York Stock Exchange (NYSE) |
+| `XNAS` | NASDAQ |
+
+## Building a stock detail page
+
+A complete asset detail page typically needs the current quote, price history for a chart, and a snapshot for the daily summary stats. Use `Promise.all` to fetch them concurrently and minimize load time:
+
+```javascript
+const [quote, bars, snapshot] = await Promise.all([
+  fetch(`${baseUrl}/market-data/assets/${symbol}/quote`, { headers }),
+  fetch(`${baseUrl}/market-data/assets/${symbol}/bars?timeframe=1Day&start=${oneYearAgo}&end=${today}`, { headers }),
+  fetch(`${baseUrl}/market-data/assets/${symbol}/snapshot`, { headers })
+]);
+```
+
+With those three responses, you can render: current price, daily change, a one-year price chart, volume, and the 52-week range — all from a single parallel fetch.

@@ -1,0 +1,125 @@
+---
+title: "KYC Document Verification: Upload & Track Identity Docs"
+sidebarTitle: "KYC Verification"
+description: "Upload identity documents for KYC verification, track approval status via polling or webhooks, and handle document rejections with re-upload flows."
+---
+
+After creating an account, your user must verify their identity by uploading a government-issued ID. This guide walks you through uploading a document, tracking its verification status, and handling rejections so users can re-submit without friction.
+
+## Upload flow
+
+<Steps>
+  <Step title="Upload a document">
+    Send the document file as a multipart form upload. Include the `account_id`, the `purpose`, the `document_type`, and the file itself.
+
+    ```bash
+    curl -X POST "$BASE_URL/documents" \
+      -H "Authorization: Basic $AUTH" \
+      -F "account_id=$INVESTOR_ID" \
+      -F "purpose=kyc" \
+      -F "document_type=id_verification" \
+      -F "file=@/path/to/id-document.jpg"
+    ```
+
+    **Accepted formats:** JPEG, PNG, PDF (max 10 MB)
+
+    | `document_type` | When to use |
+    |----------------|-------------|
+    | `id_verification` | Government-issued photo ID — **required for all accounts** |
+    | `proof_of_address` | Utility bill or bank statement — only if requested |
+    | `tax_document` | W-9 or equivalent — only if requested |
+
+    <Tip>
+      Instruct users to photograph their ID in good lighting with all four corners visible. Blurry or cropped images are the most common cause of rejection.
+    </Tip>
+  </Step>
+
+  <Step title="Track verification status">
+    Bluum reviews the document asynchronously. Use polling or webhooks to detect when review is complete.
+
+    <Tabs>
+      <Tab title="Webhooks (recommended)">
+        Subscribe to `document.approved` and `document.rejected` events. Bluum calls your endpoint as soon as the review finishes — no polling loop needed.
+
+        ```bash
+        curl -X POST "$BASE_URL/webhooks" \
+          -H "Authorization: Basic $AUTH" \
+          -H "Content-Type: application/json" \
+          -d '{
+            "url": "https://your-app.com/webhooks/bluum",
+            "events": ["document.approved", "document.rejected"]
+          }'
+        ```
+      </Tab>
+      <Tab title="Polling">
+        Fetch the document by ID to check its current `upload_status`. Poll every 5–10 seconds until the status is terminal.
+
+        ```bash
+        curl -X GET "$BASE_URL/documents/$DOCUMENT_ID" \
+          -H "Authorization: Basic $AUTH"
+        ```
+      </Tab>
+    </Tabs>
+  </Step>
+
+  <Step title="Handle the result">
+    Act on the document's final status to move your user forward or prompt them to re-upload.
+
+    | Status | What to do |
+    |--------|-----------|
+    | `approved` | Proceed to bank linking and funding |
+    | `rejected` | Display the rejection reason and prompt the user to upload a replacement |
+
+    <Note>
+      There is no limit on upload attempts. Allow users to re-submit as many times as needed.
+    </Note>
+  </Step>
+</Steps>
+
+## Handling rejections
+
+When a document is rejected, the API response includes a human-readable `rejection_reason`. Display this directly to your user so they know exactly what to fix.
+
+```json
+{
+  "document_id": "doc_a1b2c3d4e5f6g7h8",
+  "upload_status": "rejected",
+  "rejection_reason": "Document is expired"
+}
+```
+
+**Common rejection reasons:**
+
+- Document is blurry or illegible
+- Document is expired
+- Name doesn't match account identity
+- Document type not recognized
+
+Show the `rejection_reason` in your UI alongside a prompt to upload a new document. Reuse the same upload flow from Step 1.
+
+## Listing documents
+
+Retrieve all documents associated with an account, optionally filtered by status:
+
+```bash
+# All documents for an account
+curl -X GET "$BASE_URL/documents" \
+  -H "Authorization: Basic $AUTH"
+
+# Filter to approved documents only
+curl -X GET "$BASE_URL/documents?status=approved" \
+  -H "Authorization: Basic $AUTH"
+```
+
+## Sandbox behavior
+
+<Note>
+  In the sandbox environment, all document uploads are auto-approved within seconds. To test rejection flows, use the specific test values documented in your Bluum dashboard.
+</Note>
+
+## Next steps
+
+Once KYC is approved:
+
+- [Link a bank account](/guides/self-directed/bank-linking) to enable ACH deposits and withdrawals
+- [Make a deposit](/guides/self-directed/deposits-withdrawals) to fund the account before trading

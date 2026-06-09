@@ -1,0 +1,186 @@
+---
+title: "Registering and Managing Webhooks in Bluum Finance"
+sidebarTitle: "Webhook Setup"
+description: "Register, test, and manage Bluum webhook endpoints to receive real-time event notifications for orders, transfers, and account activity."
+---
+
+Webhooks let your application react instantly to events on the Bluum platform — order fills, deposit completions, KYC approvals, and more — without polling the API. This guide walks you through building a receiver endpoint, testing it locally, registering it with Bluum, and hardening it for production.
+
+<Steps>
+
+<Step title="Create a webhook endpoint">
+
+Build an HTTP endpoint that accepts `POST` requests and responds immediately with a `200` status. Keep the response fast — process events asynchronously so you never risk timing out.
+
+<CodeGroup>
+
+```javascript Express.js
+// Express.js example
+app.post('/webhooks/bluum', (req, res) => {
+  const event = req.body;
+
+  console.log(`Received event: ${event.event}`, event.data);
+
+  // Process the event asynchronously
+  processEvent(event).catch(console.error);
+
+  // Respond immediately with 200
+  res.status(200).json({ received: true });
+});
+```
+
+```python Flask
+# Flask example
+@app.route('/webhooks/bluum', methods=['POST'])
+def handle_webhook():
+    event = request.get_json()
+
+    print(f"Received event: {event['event']}", event['data'])
+
+    # Process asynchronously
+    process_event.delay(event)
+
+    return jsonify(received=True), 200
+```
+
+</CodeGroup>
+
+<Note>
+  Bluum will mark your webhook as failed if it does not receive a `2xx` response within 30 seconds. Always return immediately and push work to a background queue.
+</Note>
+
+</Step>
+
+<Step title="Test locally">
+
+Expose your local server to the internet using [ngrok](https://ngrok.com) so Bluum can reach it during development:
+
+```bash
+ngrok http 3000
+# Forwarding: https://abc123.ngrok.io → http://localhost:3000
+```
+
+Copy the `https://` forwarding URL — you'll use it when registering your endpoint. Alternatively, use [webhook.site](https://webhook.site) for quick inspection without running a server at all.
+
+</Step>
+
+<Step title="Register with Bluum">
+
+Call the `POST /webhooks` endpoint with your ngrok URL and the event type patterns you want to receive. Wildcard patterns like `order.*` subscribe you to all order events.
+
+```bash
+curl -X POST "$BASE_URL/webhooks" \
+  -H "Authorization: Basic $AUTH" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Development webhook",
+    "url": "https://abc123.ngrok.io/webhooks/bluum",
+    "eventTypeNames": ["order.*", "transfer.*"]
+  }'
+```
+
+Bluum returns a webhook object including a `webhook_id` — save it for future updates and deletions.
+
+</Step>
+
+<Step title="Trigger test events">
+
+Create an order or deposit in the sandbox to generate real events. The request below triggers an `order.accepted` event immediately, followed by `order.filled` once the sandbox executes it.
+
+```bash
+# This will trigger order.accepted and eventually order.filled
+curl -X POST "$BASE_URL/investors/$INVESTOR_ID/orders" \
+  -H "Authorization: Basic $AUTH" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "symbol": "AAPL",
+    "side": "buy",
+    "type": "market",
+    "time_in_force": "day",
+    "quantity": "1"
+  }'
+```
+
+Check your endpoint logs to confirm events are arriving with the expected shape.
+
+</Step>
+
+</Steps>
+
+## Event handling patterns
+
+### Idempotent processing
+
+Bluum may deliver the same event more than once — for example after a network timeout. Use the event's `id` field to deduplicate so that retries don't cause double-processing:
+
+```javascript
+const processedEvents = new Set(); // Use a database in production
+
+app.post('/webhooks/bluum', (req, res) => {
+  const { event, data } = req.body;
+  const eventId = data.id;
+
+  if (processedEvents.has(eventId)) {
+    return res.status(200).json({ received: true }); // Already processed
+  }
+
+  processedEvents.add(eventId);
+  handleEvent(event, data);
+
+  res.status(200).json({ received: true });
+});
+```
+
+### Event routing
+
+Route each event type to the appropriate business logic using a `switch` statement or a handler map:
+
+```javascript
+function handleEvent(eventName, data) {
+  switch (eventName) {
+    case 'order.filled':
+      notifyUser(data.account_id, `Order filled: ${data.symbol}`);
+      break;
+    case 'transfer.deposit.completed':
+      enableTrading(data.account_id);
+      break;
+    case 'transfer.deposit.failed':
+      alertUser(data.account_id, 'Deposit failed');
+      break;
+    case 'document.approved':
+      proceedWithOnboarding(data.account_id);
+      break;
+  }
+}
+```
+
+## Production checklist
+
+Before going live, verify each item below is in place:
+
+- [ ] Endpoint uses HTTPS
+- [ ] Responds with `2xx` within 30 seconds
+- [ ] Processes events asynchronously (never block the response)
+- [ ] Handles duplicate events idempotently
+- [ ] Verifies webhook signatures
+- [ ] Monitors for delivery failures
+- [ ] Logs all received events for debugging
+- [ ] Webhook URL updated from ngrok/dev to your production domain
+
+## Updating for production
+
+When you're ready to go live, update your webhook registration with your production URL using a `PATCH` request:
+
+```bash
+curl -X PATCH "$BASE_URL/webhooks/$WEBHOOK_ID" \
+  -H "Authorization: Basic $AUTH" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "url": "https://your-app.com/webhooks/bluum",
+    "description": "Production webhook"
+  }'
+```
+
+<Tip>
+  Create a separate webhook registration for production with scoped event types rather than using a catch-all `*` pattern. This keeps your handler logic focused and reduces noise.
+</Tip>

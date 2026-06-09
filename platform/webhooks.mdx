@@ -1,0 +1,202 @@
+---
+title: "Webhooks — Real-Time Notifications | Bluum Finance"
+sidebarTitle: "Webhooks"
+description: "Receive real-time push notifications for orders, transfers, and KYC decisions. Register endpoints, subscribe to events, handle retries, and test locally."
+---
+
+Webhooks deliver real-time notifications to your server when events occur in Bluum — orders filling, deposits completing, KYC decisions, and more. Use webhooks instead of polling to build responsive, event-driven integrations.
+
+## How webhooks work
+
+When an event occurs in Bluum, the platform immediately sends an HTTP `POST` request containing a structured JSON payload to your registered endpoint. Your server processes the event and acknowledges receipt by returning a `2xx` status code.
+
+```
+Event occurs in Bluum
+        │
+        ▼
+Bluum sends POST to your endpoint
+        │
+        ▼
+Your server responds 2xx ──── (retry with backoff on failure)
+```
+
+<Steps>
+  <Step title="Register your endpoint">
+    Create a webhook subscription by providing a publicly reachable HTTPS URL and the list of event types you want to receive.
+  </Step>
+  <Step title="Bluum sends events">
+    When a subscribed event fires, Bluum sends a `POST` request with a JSON payload to your URL within seconds.
+  </Step>
+  <Step title="Acknowledge receipt">
+    Return any `2xx` HTTP status code within 30 seconds to confirm delivery. Process the event asynchronously if your logic takes longer.
+  </Step>
+  <Step title="Automatic retries">
+    If your endpoint doesn't respond with `2xx` in time, Bluum retries with exponential backoff until delivery succeeds or retries are exhausted.
+  </Step>
+</Steps>
+
+## Event types
+
+Events follow the naming convention `{domain}.{action}`. Subscribe to the exact events you need.
+
+| Event | Description |
+|---|---|
+| `account.created` | New account created |
+| `account.updated` | Account details changed |
+| `order.accepted` | Order accepted for execution |
+| `order.filled` | Order fully filled |
+| `order.partially_filled` | Order partially filled |
+| `order.canceled` | Order canceled |
+| `order.rejected` | Order rejected |
+| `transfer.deposit.initiated` | Deposit initiated |
+| `transfer.deposit.completed` | Deposit completed, funds available |
+| `transfer.deposit.failed` | Deposit failed |
+| `transfer.withdrawal.initiated` | Withdrawal initiated |
+| `transfer.withdrawal.completed` | Withdrawal completed |
+| `transfer.withdrawal.failed` | Withdrawal failed |
+| `document.approved` | KYC document approved |
+| `document.rejected` | KYC document rejected |
+
+### Wildcard subscriptions
+
+Subscribe to all events within a domain by using `*` as the action:
+
+| Pattern | Matches |
+|---|---|
+| `order.*` | All order events (`accepted`, `filled`, `partially_filled`, `canceled`, `rejected`) |
+| `transfer.*` | All transfer events for both deposits and withdrawals |
+
+### List available event types
+
+Fetch the current list of supported event types programmatically:
+
+```bash
+curl -X GET "$BASE_URL/webhooks/event-types" \
+  -H "Authorization: Basic $AUTH"
+```
+
+## Registering a webhook
+
+Send a `POST` request with your endpoint URL and the event types you want to subscribe to:
+
+```bash
+curl -X POST "$BASE_URL/webhooks" \
+  -H "Authorization: Basic $AUTH" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Production webhook",
+    "url": "https://your-app.com/webhooks/bluum",
+    "eventTypeNames": ["order.*", "transfer.*"]
+  }'
+```
+
+## Managing webhooks
+
+Update subscriptions and remove endpoints as your integration evolves.
+
+<CodeGroup>
+```bash List all webhooks
+curl -X GET "$BASE_URL/webhooks" \
+  -H "Authorization: Basic $AUTH"
+```
+
+```bash Update event subscriptions
+curl -X PATCH "$BASE_URL/webhooks/$WEBHOOK_ID" \
+  -H "Authorization: Basic $AUTH" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "eventTypeNames": ["order.*", "transfer.*", "account.*"]
+  }'
+```
+
+```bash Delete a webhook
+curl -X DELETE "$BASE_URL/webhooks/$WEBHOOK_ID" \
+  -H "Authorization: Basic $AUTH"
+```
+</CodeGroup>
+
+## Webhook payload format
+
+Every event delivery follows the same envelope structure: an `event` name, a `timestamp`, and a `data` object containing the relevant resource.
+
+```json
+{
+  "event": "order.filled",
+  "timestamp": "2025-06-15T14:30:15Z",
+  "data": {
+    "id": "ord_x9y8z7a6b5c4d3e2",
+    "investor_id": "inv_01j9x8m2k7qpzwv3t5r6y8n0ab",
+    "symbol": "AAPL",
+    "side": "buy",
+    "status": "filled",
+    "filled_quantity": "10",
+    "average_price": "178.50"
+  }
+}
+```
+
+<ResponseField name="event" type="string">
+  The event name in `{domain}.{action}` format (e.g., `order.filled`).
+</ResponseField>
+
+<ResponseField name="timestamp" type="string">
+  ISO 8601 timestamp of when the event occurred in Bluum.
+</ResponseField>
+
+<ResponseField name="data" type="object">
+  The resource that triggered the event. Shape varies by event type — for order events, this is an order object; for transfer events, a transfer object; and so on.
+</ResponseField>
+
+## Retry behavior
+
+If your endpoint doesn't respond with `2xx` within **30 seconds**, Bluum automatically retries with exponential backoff:
+
+| Attempt | Delay |
+|---|---|
+| 1st retry | ~1 minute |
+| 2nd retry | ~5 minutes |
+| 3rd retry | ~30 minutes |
+| 4th retry | ~2 hours |
+| 5th retry | ~8 hours |
+
+<Warning>
+After all retries are exhausted, the event is sent to a dead letter queue. Contact Bluum support to replay failed events if your endpoint was unavailable for an extended period.
+</Warning>
+
+## Best practices
+
+<CardGroup cols={2}>
+  <Card title="Respond quickly" icon="bolt">
+    Return `2xx` within 30 seconds. If your processing logic takes longer, enqueue the payload and acknowledge receipt immediately.
+  </Card>
+  <Card title="Handle duplicates" icon="copy">
+    The same event may be delivered more than once during retries. Use the event `id` for deduplication.
+  </Card>
+  <Card title="Verify signatures" icon="shield-check">
+    Validate the webhook signature header on every incoming request to ensure it came from Bluum and hasn't been tampered with.
+  </Card>
+  <Card title="Use HTTPS" icon="lock">
+    Webhook endpoints must use HTTPS in production. HTTP endpoints are accepted only in sandbox environments.
+  </Card>
+</CardGroup>
+
+## Testing webhooks
+
+In sandbox, webhooks fire exactly as in production. Use the following tools for local development without deploying a server:
+
+- **[webhook.site](https://webhook.site)** — Instantly inspect webhook payloads in a browser without writing any code.
+- **[ngrok](https://ngrok.com)** — Create a secure tunnel to expose your local server at a public HTTPS URL.
+
+<Tip>
+Start with `webhook.site` to confirm your event subscriptions are firing correctly, then switch to ngrok when you're ready to test your actual handler code.
+</Tip>
+
+## Key endpoints
+
+| Method | Path | Description |
+|---|---|---|
+| `GET` | `/webhooks/event-types` | List all available event types |
+| `POST` | `/webhooks` | Register a new webhook |
+| `GET` | `/webhooks` | List all registered webhooks |
+| `PATCH` | `/webhooks/{webhook_id}` | Update a webhook's URL or subscriptions |
+| `DELETE` | `/webhooks/{webhook_id}` | Delete a webhook |

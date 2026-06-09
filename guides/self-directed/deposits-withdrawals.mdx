@@ -1,0 +1,152 @@
+---
+title: "Deposits & Withdrawals: Fund Accounts and Move Money"
+sidebarTitle: "Deposits & Withdrawals"
+description: "Fund investment accounts via ACH or manual bank transfer, track deposit and withdrawal statuses, cancel pending withdrawals, and handle idempotency safely."
+---
+
+Once a user's bank account is linked, you can move money into and out of their investment wallet. This guide covers ACH deposits, manual bank transfers, status tracking, withdrawals, and the idempotency rules you must follow to prevent duplicate transfers.
+
+## Deposit methods
+
+### ACH via Plaid
+
+Pull funds directly from a linked bank account using ACH. This is the fastest path — funds typically settle within 1–3 business days. Requires a [linked bank account](/guides/self-directed/bank-linking).
+
+```bash
+curl -X POST "$BASE_URL/investors/$INVESTOR_ID/deposits" \
+  -H "Authorization: Basic $AUTH" \
+  -H "Content-Type: application/json" \
+  -H "Idempotency-Key: dep-$(uuidgen)" \
+  -d '{
+    "amount": "5000.00",
+    "currency": "USD",
+    "method": "ach",
+    "description": "Initial funding",
+    "plaid_options": {
+      "item_id": "item_abc123",
+      "investor_id": "inv_1234567890"
+    }
+  }'
+```
+
+### Manual bank transfer
+
+Instruct the user to send a wire or bank transfer to a Bluum-provided account. Use this when the user doesn't have a linked Plaid account or prefers to initiate the transfer themselves.
+
+```bash
+curl -X POST "$BASE_URL/investors/$INVESTOR_ID/deposits" \
+  -H "Authorization: Basic $AUTH" \
+  -H "Content-Type: application/json" \
+  -H "Idempotency-Key: dep-$(uuidgen)" \
+  -d '{
+    "amount": "5000.00",
+    "currency": "USD",
+    "method": "manual_bank_transfer",
+    "description": "Wire transfer funding"
+  }'
+```
+
+The response includes bank details and a unique reference code. Display all of this to your user — they must include the reference code in their transfer memo so Bluum can match the incoming funds to the correct deposit.
+
+```json
+{
+  "method_details": {
+    "referenceCode": "BLUUM-ABC123XY",
+    "bankDetails": {
+      "bankName": "Choice Financial Group",
+      "accountName": "Bluum Finance, Inc.",
+      "routingNumber": "091311229",
+      "accountNumber": "202534766488",
+      "instructions": "Include reference code \"BLUUM-ABC123XY\" in your transfer memo."
+    }
+  },
+  "expires_at": "2025-06-22T10:45:00.000Z"
+}
+```
+
+<Warning>
+  The manual transfer deposit expires at `expires_at`. If funds are not received by that time, the deposit record is voided and a new one must be created.
+</Warning>
+
+## Tracking deposit status
+
+Fetch the deposit to check its current status:
+
+```bash
+curl -X GET "$BASE_URL/investors/$INVESTOR_ID/deposits/$DEPOSIT_ID" \
+  -H "Authorization: Basic $AUTH"
+```
+
+| Status | Meaning | What to do next |
+|--------|---------|-----------------|
+| `pending` | Created, not yet initiated | Wait, or cancel if needed |
+| `processing` | ACH initiated with the bank | Wait |
+| `received` | Funds received, currently settling | Wait |
+| `completed` | Funds are in the wallet and ready to trade | Allow order placement |
+| `failed` | Transfer failed | Check `failure_reason` in the response, then retry |
+
+<Tip>
+  Subscribe to `transfer.deposit.*` webhook events instead of polling. Bluum sends a real-time notification on every status transition, which is more efficient and reduces API load.
+</Tip>
+
+## Withdrawals
+
+Withdraw funds from the investment wallet to a linked bank account:
+
+```bash
+curl -X POST "$BASE_URL/investors/$INVESTOR_ID/withdrawals" \
+  -H "Authorization: Basic $AUTH" \
+  -H "Content-Type: application/json" \
+  -H "Idempotency-Key: wdr-$(uuidgen)" \
+  -d '{
+    "amount": "1000.00",
+    "currency": "USD",
+    "method": "ach",
+    "description": "Withdrawal to checking",
+    "plaid_options": {
+      "item_id": "item_abc123",
+      "investor_id": "inv_1234567890"
+    }
+  }'
+```
+
+### Withdrawal statuses
+
+| Status | Meaning |
+|--------|---------|
+| `pending` | Created — can still be canceled |
+| `processing` | ACH initiated with the bank |
+| `submitted` | Submitted to the receiving bank |
+| `completed` | Funds delivered to the user's bank |
+| `failed` | Transfer failed |
+
+### Canceling a withdrawal
+
+Only `pending` withdrawals can be canceled. Once a withdrawal reaches `processing`, it can no longer be stopped.
+
+```bash
+curl -X POST "$BASE_URL/investors/$INVESTOR_ID/withdrawals/$WITHDRAWAL_ID/cancel" \
+  -H "Authorization: Basic $AUTH"
+```
+
+## Idempotency
+
+Always include a unique `Idempotency-Key` header on every deposit and withdrawal request. If a request fails due to a network timeout or other transient error, you can safely retry it with the same key — Bluum will return the original response without creating a duplicate transfer.
+
+```bash
+-H "Idempotency-Key: dep-unique-operation-id"
+```
+
+<Warning>
+  Never reuse an idempotency key for a different operation. Using the same key with a different request body returns a `BLUM-409-*` error. Generate a new key (e.g., a UUID) for each distinct transfer.
+</Warning>
+
+See [Idempotency](/platform/idempotency) for best practices on key generation and retry strategies.
+
+## Error handling
+
+| Error code | Cause | Resolution |
+|-----------|-------|-----------|
+| `BLUM-400-*` | Invalid amount or missing fields | Review the request body against the API reference |
+| `BLUM-422-*` | Insufficient funds (withdrawal) | Check the wallet balance before submitting the withdrawal |
+| `BLUM-409-*` | Duplicate idempotency key with a different request body | Generate a new idempotency key for each distinct operation |

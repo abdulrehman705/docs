@@ -1,0 +1,70 @@
+---
+title: "Bluum Finance API Support Channels and Contact Info"
+sidebarTitle: "Support"
+description: "Contact Bluum Finance support by email or phone, understand response time SLAs by severity, and request production access for your integration."
+---
+
+Bluum offers several support channels depending on the urgency and nature of your question. For most integration questions, developer support is your fastest path to an answer. For production emergencies during market hours, use the trading desk directly.
+
+## Support channels
+
+| Channel | Contact | Best for |
+| --- | --- | --- |
+| **Email** | [support@bluum.finance](mailto:support@bluum.finance) | Credentials, access requests, compliance questions, general inquiries |
+| **Developer support** | [ope@bluumfinance.com](mailto:ope@bluumfinance.com) | Integration help, technical questions, API issues |
+| **Emergency trading desk** | `+1 (415) 555-0112` | Urgent production issues during market hours (available 24/5) |
+
+## When contacting support
+
+Include the following information in your message to help the team resolve your issue as quickly as possible:
+
+- **Your company name** and dashboard account email
+- **Environment** — sandbox or production
+- **Request ID** — the `X-Request-Id` header value from the API response
+- **Error code** — for example, `BLUM-400-001`
+- **Timestamp** of when the issue occurred
+- **Steps to reproduce** — the API calls you made and the parameters you used
+
+<Tip>
+  The `X-Request-Id` is the single most useful piece of information for diagnosing API issues. Every response includes it — log it alongside your requests.
+</Tip>
+
+## Response times
+
+| Severity | Description | Target response |
+| --- | --- | --- |
+| **Critical** | Production trading or funding blocked | 1 hour (during market hours) |
+| **High** | Feature degraded, workaround available | 4 hours |
+| **Medium** | Non-blocking issue or question | 1 business day |
+| **Low** | Feature request, documentation improvement | 3 business days |
+
+## Self-service resources
+
+Before opening a support ticket, check these resources — most integration questions have documented answers:
+
+<CardGroup cols={2}>
+  <Card title="Error Code Reference" icon="triangle-exclamation" href="/resources/error-codes">
+    Troubleshooting guidance for every `BLUM` error code
+  </Card>
+  <Card title="Sandbox Environment" icon="flask" href="/get-started/sandbox">
+    Sandbox-specific behaviors and test data
+  </Card>
+  <Card title="API Reference" icon="code" href="/api-reference/introduction">
+    Endpoint documentation with schemas and examples
+  </Card>
+  <Card title="System Status" icon="signal" href="https://status.bluumfinance.com">
+    Check for ongoing incidents and scheduled maintenance
+  </Card>
+</CardGroup>
+
+## Requesting production access
+
+When your sandbox testing is complete, email [support@bluum.finance](mailto:support@bluum.finance) with:
+
+1. Your company name and dashboard account email
+2. Your integration model — Self-Directed or Wealth Management
+3. Confirmation that sandbox testing is complete
+
+<Note>
+  See the [Going Live](/get-started/go-live) guide for the full production readiness checklist you should complete before requesting access.
+</Note>

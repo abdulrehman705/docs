@@ -1,0 +1,368 @@
+---
+title: "Quick Start: Self-Directed Investing with Bluum Finance"
+sidebarTitle: "Self-Directed"
+description: "Walk through the complete self-directed investing flow: account creation, KYC, bank linking, funding, trading, and withdrawal — in under 30 minutes."
+---
+
+This guide walks through the complete self-directed investing lifecycle: account creation, KYC, bank linking, funding, trading, and withdrawal. By the end, you'll have a working integration running in the sandbox.
+
+**Prerequisites:** API credentials from the [sandbox environment](/get-started/sandbox). A terminal or API client (cURL, Postman, or similar).
+
+## Before you begin
+
+Set these shell variables once — every example below references them:
+
+```bash
+API_KEY="YOUR_API_KEY"
+API_SECRET="YOUR_API_SECRET"
+BASE_URL="https://test-service.bluumfinance.com/v1"
+AUTH=$(echo -n "$API_KEY:$API_SECRET" | base64)
+```
+
+---
+
+## The full lifecycle
+
+<Steps>
+
+  <Step title="Create an investment account">
+    When a user in your app is ready to invest, create an `individual` account on their behalf. This collects identity, contact information, regulatory disclosures, and agreements.
+
+    <CodeGroup>
+    ```bash cURL
+    curl -X POST "$BASE_URL/accounts" \
+      -H "Authorization: Basic $AUTH" \
+      -H "Content-Type: application/json" \
+      -d '{
+        "account_type": "individual",
+        "management_type": "self_directed",
+        "contact": {
+          "email_address": "jane.doe@example.com",
+          "phone_number": "+14155551234",
+          "street_address": ["456 Oak Avenue"],
+          "city": "San Francisco",
+          "state": "CA",
+          "postal_code": "94102",
+          "country": "US"
+        },
+        "identity": {
+          "first_name": "Jane",
+          "last_name": "Doe",
+          "date_of_birth": "1990-05-15",
+          "tax_id": "987-65-4321",
+          "tax_id_type": "SSN",
+          "country_of_citizenship": "US",
+          "country_of_birth": "US",
+          "country_of_tax_residence": "US",
+          "funding_source": ["employment_income"]
+        },
+        "disclosures": {
+          "is_control_person": false,
+          "is_affiliated_exchange_or_finra": false,
+          "is_politically_exposed": false,
+          "immediate_family_exposed": false
+        },
+        "agreements": [
+          {
+            "agreement": "investor_agreement",
+            "agreed": true,
+            "signed_at": "2025-06-15T10:30:00Z",
+            "ip_address": "203.0.113.42"
+          },
+          {
+            "agreement": "investor_agreement",
+            "agreed": true,
+            "signed_at": "2025-06-15T10:30:00Z",
+            "ip_address": "203.0.113.42"
+          }
+        ]
+      }'
+    ```
+    </CodeGroup>
+
+    The response returns an account with `status: "ACTIVE"`. Store the `id` — you'll need it for every subsequent call.
+
+    ```bash
+    INVESTOR_ID="3d0b0e65-35d3-4dcd-8df7-10286ebb4b4b"
+    ```
+
+    See [Accounts](/platform/accounts) for details on account types, required fields, and lifecycle states.
+  </Step>
+
+  <Step title="Upload KYC documents">
+    Identity verification requires supporting documents. Upload a government-issued ID such as a passport or driver's license.
+
+    ```bash
+    curl -X POST "$BASE_URL/documents" \
+      -H "Authorization: Basic $AUTH" \
+      -F "document_type=id_verification" \
+      -F "account_id=$INVESTOR_ID" \
+      -F "file=@/path/to/drivers-license.jpg"
+    ```
+
+    The API returns the document record immediately with `upload_status: "processing"`:
+
+    ```json
+    {
+      "document_id": "doc_a1b2c3d4e5f6g7h8",
+      "investor_id": "inv_01j9x8m2k7qpzwv3t5r6y8n0ab",
+      "document_type": "id_verification",
+      "upload_status": "processing",
+      "uploaded_at": "2025-06-15T10:35:00Z"
+    }
+    ```
+
+    Poll for the final status until it changes to `approved`:
+
+    ```bash
+    curl -X GET "$BASE_URL/documents/doc_a1b2c3d4e5f6g7h8" \
+      -H "Authorization: Basic $AUTH"
+    ```
+
+    <Note>
+      In sandbox, documents are auto-approved instantly. In production, use [webhooks](/platform/webhooks) to receive a notification when KYC is complete instead of polling.
+    </Note>
+  </Step>
+
+  <Step title="Link a bank account via Plaid">
+    Before the user can deposit funds, they need to link a bank account. This is a two-step flow using Plaid Link.
+
+    **3a — Create a Plaid Link token**
+
+    Generate a token your frontend uses to launch the Plaid Link widget:
+
+    ```bash
+    curl -X POST "$BASE_URL/investors/$INVESTOR_ID/funding-sources/plaid/link-token" \
+      -H "Authorization: Basic $AUTH" \
+      -H "Content-Type: application/json" \
+      -d '{ "enable_hosted_link": false }'
+    ```
+
+    ```json
+    {
+      "status": "success",
+      "data": {
+        "link_token": "link-sandbox-abc123def456",
+        "hosted_link_url": null
+      }
+    }
+    ```
+
+    <Tip>
+      Set `enable_hosted_link: true` for a Plaid-hosted redirect flow instead of embedding the widget in your UI.
+    </Tip>
+
+    **3b — Exchange the public token**
+
+    After the user completes Plaid Link, your frontend receives a `public_token`. Send it to Bluum to finalize the connection:
+
+    ```bash
+    curl -X POST "$BASE_URL/investors/$INVESTOR_ID/funding-sources/connect" \
+      -H "Authorization: Basic $AUTH" \
+      -H "Content-Type: application/json" \
+      -d '{ "public_token": "public-sandbox-abc123def456" }'
+    ```
+
+    Store the returned `item.itemId` and `item.accounts[0].accountId` — you'll need them for deposits and withdrawals.
+
+    ```bash
+    PLAID_ITEM_ID="item_abc123"
+    PLAID_ACCOUNT_ID="acc_1234567890"
+    ```
+  </Step>
+
+  <Step title="Deposit funds">
+    Fund the account via ACH using the linked bank account:
+
+    ```bash
+    curl -X POST "$BASE_URL/investors/$INVESTOR_ID/deposits" \
+      -H "Authorization: Basic $AUTH" \
+      -H "Content-Type: application/json" \
+      -H "Idempotency-Key: dep-$(uuidgen)" \
+      -d '{
+        "amount": "5000.00",
+        "currency": "USD",
+        "method": "ach",
+        "description": "Initial account funding",
+        "plaid_options": {
+          "item_id": "'"$PLAID_ITEM_ID"'",
+          "account_id": "'"$PLAID_ACCOUNT_ID"'"
+        }
+      }'
+    ```
+
+    Deposit status progresses: `pending` → `processing` → `received` → `completed`.
+
+    <Warning>
+      Always include an `Idempotency-Key` header on deposit and withdrawal requests. This prevents duplicate transfers if you need to retry a failed request.
+    </Warning>
+
+    You can also use `manual_bank_transfer` as the method — the response includes bank details and a reference code your user provides to their bank. See [Deposits & Withdrawals](/guides/self-directed/deposits-withdrawals) for all funding methods.
+  </Step>
+
+  <Step title="Place a buy order">
+    Once the deposit is `completed` and the wallet is funded, the user can trade. Bluum supports buying by quantity (whole shares) or by dollar amount (fractional shares).
+
+    <Tabs>
+      <Tab title="Market buy — by quantity">
+        Buy 10 shares of AAPL at the current market price:
+
+        ```bash
+        curl -X POST "$BASE_URL/investors/$INVESTOR_ID/orders" \
+          -H "Authorization: Basic $AUTH" \
+          -H "Content-Type: application/json" \
+          -d '{
+            "symbol": "AAPL",
+            "side": "buy",
+            "type": "market",
+            "time_in_force": "day",
+            "quantity": "10"
+          }'
+        ```
+      </Tab>
+      <Tab title="Market buy — by dollar amount">
+        Invest exactly $1,000 worth of GOOGL (fractional shares):
+
+        ```bash
+        curl -X POST "$BASE_URL/investors/$INVESTOR_ID/orders" \
+          -H "Authorization: Basic $AUTH" \
+          -H "Content-Type: application/json" \
+          -d '{
+            "symbol": "GOOGL",
+            "side": "buy",
+            "type": "market",
+            "time_in_force": "day",
+            "notional": "1000.00"
+          }'
+        ```
+      </Tab>
+    </Tabs>
+
+    Both requests return an order object:
+
+    ```json
+    {
+      "id": "ord_x9y8z7a6b5c4d3e2",
+      "investor_id": "inv_01j9x8m2k7qpzwv3t5r6y8n0ab",
+      "symbol": "AAPL",
+      "quantity": "10",
+      "side": "buy",
+      "type": "market",
+      "time_in_force": "day",
+      "status": "pending",
+      "filled_quantity": "0",
+      "average_price": "0.00",
+      "submitted_at": "2025-06-15T14:30:00Z"
+    }
+    ```
+
+    Order status progresses: `accepted` → `filled` (or `partially_filled`, `canceled`, `rejected`). Check order status at any time:
+
+    ```bash
+    curl -X GET "$BASE_URL/investors/$INVESTOR_ID/orders/ord_x9y8z7a6b5c4d3e2" \
+      -H "Authorization: Basic $AUTH"
+    ```
+
+    See [Trading](/platform/trading) for limit, stop, and trailing stop order types.
+  </Step>
+
+  <Step title="Check positions">
+    After an order fills, view the account's current holdings:
+
+    ```bash
+    curl -X GET "$BASE_URL/investors/$INVESTOR_ID/positions" \
+      -H "Authorization: Basic $AUTH"
+    ```
+
+    ```json
+    [
+      {
+        "id": "pos_a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+        "investor_id": "inv_01j9x8m2k7qpzwv3t5r6y8n0ab",
+        "symbol": "AAPL",
+        "asset_id": "asset_9f8e7d6c-5b4a-3210-fedc-ba0987654321",
+        "currency": "USD",
+        "quantity": "10",
+        "average_cost_basis": "178.50",
+        "total_cost_basis": "1785.00",
+        "current_price": "179.25",
+        "market_value": "1792.50",
+        "unrealized_pl": "7.50",
+        "unrealized_pl_percent": "0.0042",
+        "price_source": "ALPACA",
+        "price_confidence": "REAL_TIME",
+        "price_timestamp": "2025-06-15T14:30:00Z",
+        "last_transaction_at": "2025-06-15T14:00:00Z",
+        "created_at": "2025-06-15T14:00:00Z",
+        "updated_at": "2025-06-15T14:30:00Z"
+      }
+    ]
+    ```
+  </Step>
+
+  <Step title="Withdraw funds">
+    Sell positions first, then withdraw the proceeds to the user's linked bank account.
+
+    ```bash
+    # Sell the AAPL position
+    curl -X POST "$BASE_URL/investors/$INVESTOR_ID/orders" \
+      -H "Authorization: Basic $AUTH" \
+      -H "Content-Type: application/json" \
+      -d '{
+        "symbol": "AAPL",
+        "side": "sell",
+        "type": "market",
+        "time_in_force": "day",
+        "quantity": "10"
+      }'
+
+    # Withdraw to linked bank account
+    curl -X POST "$BASE_URL/investors/$INVESTOR_ID/withdrawals" \
+      -H "Authorization: Basic $AUTH" \
+      -H "Content-Type: application/json" \
+      -H "Idempotency-Key: wdr-$(uuidgen)" \
+      -d '{
+        "amount": "1000.00",
+        "currency": "USD",
+        "method": "ach",
+        "description": "Withdrawal to checking account",
+        "plaid_options": {
+          "item_id": "'"$PLAID_ITEM_ID"'",
+          "account_id": "'"$PLAID_ACCOUNT_ID"'"
+        }
+      }'
+    ```
+
+    Withdrawal status progresses: `pending` → `processing` → `submitted` → `completed`.
+  </Step>
+
+</Steps>
+
+---
+
+## Summary
+
+| Step | Endpoint | What it does |
+|---|---|---|
+| 1 | `POST /accounts` | Create investment account with identity, contact, disclosures |
+| 2 | `POST /documents` | Upload KYC documents (multipart; `account_id={investor_id}`) |
+| 3a | `POST /investors/{investor_id}/funding-sources/plaid/link-token` | Get Plaid Link token for bank connection UI |
+| 3b | `POST /investors/{investor_id}/funding-sources/connect` | Exchange Plaid public token to finalize connection |
+| 4 | `POST /investors/{investor_id}/deposits` | Deposit funds via ACH or manual bank transfer |
+| 5 | `POST /investors/{investor_id}/orders` | Place a buy order |
+| 6 | `GET /investors/{investor_id}/positions` | View current holdings |
+| 7 | `POST /investors/{investor_id}/withdrawals` | Withdraw proceeds to linked bank account |
+
+## Next steps
+
+<CardGroup cols={3}>
+  <Card title="Platform Concepts" icon="book" href="/platform/accounts">
+    Understand the full data model — accounts, wallets, orders, and more.
+  </Card>
+  <Card title="Webhooks" icon="bell" href="/platform/webhooks">
+    Set up real-time event notifications instead of polling for status changes.
+  </Card>
+  <Card title="Go Live" icon="rocket" href="/get-started/go-live">
+    Run through the production readiness checklist when you're ready to deploy.
+  </Card>
+</CardGroup>

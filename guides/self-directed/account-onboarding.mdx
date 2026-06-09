@@ -1,0 +1,137 @@
+---
+title: "Investment Account Onboarding: Step-by-Step API Guide"
+sidebarTitle: "Account Onboarding"
+description: "Create and activate a self-directed investment account by collecting user data across four groups, submitting the account, and handling validation errors."
+---
+
+Opening an investment account requires your user to provide four groups of information — contact details, identity, regulatory disclosures, and signed agreements. This guide shows you how to collect that data across multiple screens and submit it to the Bluum API in a single request.
+
+<Note>
+  The examples below reference shell variables `$BASE_URL` and `$AUTH`. Set them once before running any request: `BASE_URL="https://test-service.bluumfinance.com/v1"` and `AUTH=$(echo -n "$API_KEY:$API_SECRET" | base64)`. See the [Quick Start](/get-started/quick-start-self-directed) for the full setup.
+</Note>
+
+## Overview
+
+Account creation requires four data groups:
+
+| # | Group | What it contains |
+|---|-------|-----------------|
+| 1 | **Contact** | Email, phone, mailing address |
+| 2 | **Identity** | Legal name, date of birth, tax ID, citizenship |
+| 3 | **Disclosures** | Regulatory disclosures (control person, political exposure, etc.) |
+| 4 | **Agreements** | Account and customer agreements with timestamps and IP address |
+
+## Choosing an account type
+
+Before building your collection screens, decide which account type you're creating:
+
+| If you're building… | `account_type` | `management_type` |
+|---------------------|---------------|-------------------|
+| Trading app, invest tab, stock gifting | `individual` | `self_directed` |
+| Robo-advisor, financial planner, managed portfolios | `individual` | `advised` |
+
+See [Accounts](/platform/accounts) for full details on account types and lifecycle.
+
+## Collecting data in your UI
+
+You don't need to collect all data on a single screen. Break it across multiple steps to reduce friction and improve completion rates. A common multi-screen pattern:
+
+```text
+Screen 1: Name, email, phone
+Screen 2: Address
+Screen 3: Date of birth, SSN, citizenship, funding source
+Screen 4: Disclosures (yes/no checkboxes)
+Screen 5: Agreement review and signature
+```
+
+Store each screen's data in your application state and submit the full account payload only after the user completes Screen 5.
+
+## Creating the account
+
+<Steps>
+  <Step title="Collect all four data groups across your screens">
+    Gather contact, identity, disclosures, and agreement data as the user moves through your onboarding flow. Don't submit until all fields are present.
+  </Step>
+  <Step title="Submit the account creation request">
+    Send a single `POST /accounts` request with the complete payload. Bluum validates all fields synchronously and returns an account object on success.
+
+    ```bash
+    curl -X POST "$BASE_URL/accounts" \
+      -H "Authorization: Basic $AUTH" \
+      -H "Content-Type: application/json" \
+      -d '{
+        "account_type": "individual",
+        "management_type": "self_directed",
+        "contact": {
+          "email_address": "user@example.com",
+          "phone_number": "+14155551234",
+          "street_address": ["456 Oak Avenue"],
+          "city": "San Francisco",
+          "state": "CA",
+          "postal_code": "94102",
+          "country": "US"
+        },
+        "identity": {
+          "first_name": "Jane",
+          "last_name": "Doe",
+          "date_of_birth": "1990-05-15",
+          "tax_id": "987-65-4321",
+          "tax_id_type": "SSN",
+          "country_of_citizenship": "US",
+          "country_of_birth": "US",
+          "country_of_tax_residence": "US",
+          "funding_source": ["employment_income"]
+        },
+        "disclosures": {
+          "is_control_person": false,
+          "is_affiliated_exchange_or_finra": false,
+          "is_politically_exposed": false,
+          "immediate_family_exposed": false
+        },
+        "agreements": [
+          {
+            "agreement": "investor_agreement",
+            "agreed": true,
+            "signed_at": "2025-06-15T10:30:00Z",
+            "ip_address": "203.0.113.42"
+          },
+          {
+            "agreement": "investor_agreement",
+            "agreed": true,
+            "signed_at": "2025-06-15T10:30:00Z",
+            "ip_address": "203.0.113.42"
+          }
+        ]
+      }'
+    ```
+
+    <Note>
+      Capture the `ip_address` from the user's actual request headers at the moment they accept the agreements — this is a regulatory requirement.
+    </Note>
+  </Step>
+  <Step title="Handle the response">
+    A successful response returns the new account object including an `id` and `status`. Store the account `id` — you'll use it as `INVESTOR_ID` in subsequent API calls for KYC, bank linking, and orders.
+  </Step>
+</Steps>
+
+## Handling validation errors
+
+When the request fails, Bluum returns a structured error response. The most common errors are:
+
+| Error code | Description | How to fix |
+|-----------|-------------|-----------|
+| `BLUM-400-002` Missing field | A required field was omitted | Check your request body against the [Accounts](/platform/accounts) schema |
+| `BLUM-400-003` Invalid format | A field has the wrong data format | Phone: E.164 (`+1...`), dates: `YYYY-MM-DD`, country: ISO alpha-2 |
+| `BLUM-409-001` Duplicate | An account with the same email already exists | Check for an existing account before creating a new one |
+
+<Tip>
+  Validate phone numbers into E.164 format and dates into `YYYY-MM-DD` format on the client before submitting — this eliminates the most common format errors before they ever reach the API.
+</Tip>
+
+## After account creation
+
+Once the account status is `ACTIVE`, complete the remaining onboarding steps:
+
+1. **Upload KYC documents** — The user must verify their identity before trading. See [KYC Verification](/guides/self-directed/kyc-verification).
+2. **Link a bank account** — Connect a bank account to enable deposits and withdrawals. See [Bank Linking](/guides/self-directed/bank-linking).
+3. **Fund the account** — Deposit funds before the user can place orders. See [Deposits & Withdrawals](/guides/self-directed/deposits-withdrawals).

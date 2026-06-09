@@ -1,0 +1,128 @@
+---
+title: "Set Up Your Bluum Finance Sandbox Development Environment"
+sidebarTitle: "Sandbox"
+description: "Get sandbox API credentials, explore simulated order execution and KYC, and configure your environment to build against Bluum without touching real money."
+---
+
+The sandbox is a fully functional replica of the Bluum production environment. It simulates order execution, deposit processing, and KYC verification — without touching real money or securities. Use it to build and validate your entire integration before going live.
+
+## Sandbox vs production
+
+| | Sandbox | Production |
+|---|---|---|
+| **Base URL** | `https://test-service.bluumfinance.com/v1` | `https://service.bluumfinance.com/v1` |
+| **Data persistence** | Resets nightly at midnight UTC | Permanent |
+| **Order execution** | Simulated fills (instant for market orders) | Real exchange execution |
+| **Deposits** | Simulated ACH processing | Real bank transfers |
+| **KYC verification** | Auto-approved in most cases | Real identity verification |
+| **Rate limit** | 10 requests/second | 25 requests/second |
+| **Access** | Immediate after signup | Requires compliance approval |
+
+## Getting credentials
+
+<Steps>
+  <Step title="Create a dashboard account">
+    Visit the [Bluum Finance dashboard](https://dashboard.bluumfinance.com/login) and sign up with your email and company information.
+  </Step>
+  <Step title="Generate API keys">
+    Navigate to **Settings > API Keys** in the dashboard. Click **Create API Key** and copy both the API Key and API Secret immediately.
+
+    <Warning>
+      The API Secret is only shown once. If you lose it, you'll need to generate a new key pair.
+    </Warning>
+  </Step>
+  <Step title="Test your credentials">
+    Run the following request to confirm your credentials are working. A successful response returns a JSON array of tradable assets.
+
+    ```bash
+    curl -X GET 'https://test-service.bluumfinance.com/v1/assets?asset_class=us_equity&tradable=true' \
+      -H 'Authorization: Basic '$(echo -n 'YOUR_API_KEY:YOUR_API_SECRET' | base64)
+    ```
+  </Step>
+</Steps>
+
+## Environment variable setup
+
+Use environment variables to switch between sandbox and production without changing your code. Set these in your shell before running any examples in this documentation:
+
+```bash
+# Sandbox
+export BLUUM_BASE_URL="https://test-service.bluumfinance.com/v1"
+export BLUUM_API_KEY="your_sandbox_key"
+export BLUUM_API_SECRET="your_sandbox_secret"
+```
+
+Then construct the `Authorization` header at runtime in your application:
+
+```javascript
+const BASE_URL = process.env.BLUUM_BASE_URL;
+const credentials = Buffer.from(
+  `${process.env.BLUUM_API_KEY}:${process.env.BLUUM_API_SECRET}`
+).toString('base64');
+```
+
+<Tip>
+  Use a secret manager such as AWS Secrets Manager, HashiCorp Vault, or Doppler to store credentials in production. Never hardcode API keys in source code or config files.
+</Tip>
+
+## Setting up Postman
+
+The Bluum Postman collection includes pre-configured requests for every endpoint, with Base64 encoding handled automatically.
+
+<Steps>
+  <Step title="Import the collection">
+    Import the collection from the [Bluum Postman documentation](https://documenter.getpostman.com/view/40898431/2sBXVo97hh).
+  </Step>
+  <Step title="Configure environment variables">
+    In your Postman environment, set the following variables:
+
+    | Variable | Value |
+    |---|---|
+    | `baseUrl` | `https://test-service.bluumfinance.com/v1` |
+    | `apiKey` | Your sandbox API key |
+    | `apiSecret` | Your sandbox API secret |
+  </Step>
+  <Step title="Send your first request">
+    Open any request in the collection and click **Send**. The collection pre-scripts build the `Authorization` header automatically from your environment variables.
+  </Step>
+</Steps>
+
+See [Postman Collection](/resources/postman) for detailed setup instructions.
+
+## Sandbox behaviors
+
+Understanding how the sandbox simulates production behavior helps you write realistic integration tests.
+
+### Order execution
+
+Market orders fill instantly at the current simulated price. Limit orders fill when the simulated price crosses your limit. Orders placed outside market hours queue until the next simulated open — the same way they behave in production.
+
+### Deposits and withdrawals
+
+ACH deposits via Plaid transition through `pending` → `processing` → `completed` within seconds. Manual bank transfer deposits remain in `pending` until you explicitly trigger completion, which is useful for testing status transitions and webhook handlers.
+
+### KYC verification
+
+Document uploads are auto-approved in sandbox so you can move through the account setup flow quickly. To test rejection scenarios, use the specific test values documented in your dashboard.
+
+### Webhooks
+
+Webhook events fire in sandbox exactly as they do in production. Register a webhook endpoint to receive real-time event notifications during development.
+
+<Tip>
+  Use [webhook.site](https://webhook.site) or [ngrok](https://ngrok.com) to inspect webhook payloads on your local machine without deploying a server.
+</Tip>
+
+## Next steps
+
+<CardGroup cols={3}>
+  <Card title="Quick Start: Self-Directed" icon="bolt" href="/get-started/quick-start-self-directed">
+    Make your first trade — account creation through withdrawal in 30 minutes.
+  </Card>
+  <Card title="Wealth Management" icon="chart-line" href="/get-started/quick-start-wealth">
+    Book a demo to learn about managed portfolios and financial planning.
+  </Card>
+  <Card title="Go Live" icon="rocket" href="/get-started/go-live">
+    Review the production readiness checklist when you're ready to deploy.
+  </Card>
+</CardGroup>

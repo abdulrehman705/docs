@@ -1,0 +1,132 @@
+---
+title: "Positions & Portfolio: Query Holdings and Track P&L"
+sidebarTitle: "Positions & Portfolio"
+description: "Retrieve investment positions, interpret P&L fields like unrealized gain and market value, and build portfolio UI patterns with real-time updates."
+---
+
+After an order fills, a position appears in the investor's account. This guide explains how to fetch positions, interpret every P&L field, build a portfolio view in your UI, and keep that view up to date as market prices change.
+
+## Listing positions
+
+Fetch all current holdings for an investor with a single request:
+
+```bash
+curl -X GET "$BASE_URL/investors/$INVESTOR_ID/positions" \
+  -H "Authorization: Basic $AUTH"
+```
+
+The response is an array of position objects — one per asset the investor currently holds:
+
+```json
+[
+  {
+    "id": "pos_a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+    "investor_id": "inv_01j9x8m2k7qpzwv3t5r6y8n0ab",
+    "symbol": "AAPL",
+    "asset_id": "asset_9f8e7d6c-5b4a-3210-fedc-ba0987654321",
+    "currency": "USD",
+    "quantity": "10",
+    "average_cost_basis": "178.50",
+    "total_cost_basis": "1785.00",
+    "current_price": "182.30",
+    "market_value": "1823.00",
+    "unrealized_pl": "38.00",
+    "unrealized_pl_percent": "0.0213",
+    "price_source": "ALPACA",
+    "price_confidence": "REAL_TIME",
+    "price_timestamp": "2025-06-15T14:30:00Z",
+    "last_transaction_at": "2025-06-15T14:00:00Z",
+    "created_at": "2025-06-15T14:00:00Z",
+    "updated_at": "2025-06-15T14:30:00Z"
+  },
+  {
+    "id": "pos_b2c3d4e5-f6a7-8901-bcde-f12345678901",
+    "investor_id": "inv_01j9x8m2k7qpzwv3t5r6y8n0ab",
+    "symbol": "GOOGL",
+    "asset_id": "asset_8e7d6c5b-4a32-10fe-dcba-098765432100",
+    "currency": "USD",
+    "quantity": "5.42",
+    "average_cost_basis": "184.50",
+    "total_cost_basis": "999.99",
+    "current_price": "186.10",
+    "market_value": "1008.66",
+    "unrealized_pl": "8.67",
+    "unrealized_pl_percent": "0.0087",
+    "price_source": "ALPACA",
+    "price_confidence": "REAL_TIME",
+    "price_timestamp": "2025-06-15T14:30:00Z",
+    "last_transaction_at": "2025-06-15T13:45:00Z",
+    "created_at": "2025-06-15T13:45:00Z",
+    "updated_at": "2025-06-15T14:30:00Z"
+  }
+]
+```
+
+## Position detail
+
+Fetch a single position by its ID:
+
+```bash
+curl -X GET "$BASE_URL/investors/$INVESTOR_ID/positions/$POSITION_ID" \
+  -H "Authorization: Basic $AUTH"
+```
+
+## Understanding P&L fields
+
+Each position includes four fields that together tell the full profit-and-loss story:
+
+| Field | Formula | What it tells you |
+|-------|---------|-------------------|
+| `total_cost_basis` | `quantity × average_cost_basis` | What the investor originally paid for these shares |
+| `market_value` | `quantity × current_price` | What those shares are worth right now |
+| `unrealized_pl` | `market_value − total_cost_basis` | Dollar gain or loss on paper |
+| `unrealized_pl_percent` | `unrealized_pl ÷ total_cost_basis` | Percentage gain or loss on paper |
+
+<Note>
+  **Unrealized** means the gain or loss exists on paper — the investor hasn't sold yet. Once they sell, the P&L becomes **realized**. Only unrealized P&L is available from the positions endpoint.
+</Note>
+
+## Displaying positions in your UI
+
+Use these patterns to present portfolio data clearly:
+
+### Portfolio summary
+
+Aggregate across all positions to show the investor's overall portfolio health:
+
+- **Total market value** — Sum of all `market_value` fields
+- **Total unrealized P&L** — Sum of all `unrealized_pl` fields
+- **Overall percentage return** — `total_unrealized_pl ÷ total_cost_basis`
+
+### Per-position row
+
+Show each position as a row in a holdings table or list:
+
+- Symbol and company name
+- Quantity held (supports fractional shares like `5.42`)
+- Current price (`current_price`)
+- Total market value (`market_value`)
+- Unrealized P&L — display in green for positive values, red for negative
+- Percentage change (`unrealized_pl_percent`)
+
+### Real-time updates
+
+Positions update as market prices change throughout the trading day. Choose the strategy that fits your product's needs:
+
+- **Polling** — Query `GET /positions` every 30 seconds during market hours. Simple to implement and works well for lower-frequency updates.
+- **Webhooks** — Subscribe to `order.filled` events to detect when new positions are created or existing ones change size. Combine with a price feed for live `current_price` and `market_value` updates.
+
+## When positions update
+
+| Event | Effect on positions |
+|-------|-------------------|
+| Buy order fills | A new position is created, or an existing position's `quantity` and `average_cost_basis` increase |
+| Sell order fills | Position `quantity` decreases; the position is removed entirely if fully sold |
+| Market price change | `current_price`, `market_value`, `unrealized_pl`, and `unrealized_pl_percent` are recalculated |
+| Stock split | `quantity` and `average_cost_basis` are adjusted proportionally — `total_cost_basis` and `market_value` remain accurate |
+
+## Empty positions
+
+<Note>
+  When an investor sells their entire holding in an asset, the position is removed from the list entirely. A `GET /positions` response only includes assets the investor currently holds — a 200 response with an empty array `[]` means the investor has no open positions.
+</Note>

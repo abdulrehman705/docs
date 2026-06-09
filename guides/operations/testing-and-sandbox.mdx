@@ -1,0 +1,139 @@
+---
+title: "Testing Your Bluum Finance Integration in the Sandbox"
+sidebarTitle: "Testing & Sandbox"
+description: "Systematically test every domain — accounts, KYC, deposits, trading, and webhooks — against Bluum's full-featured sandbox before going live."
+---
+
+The Bluum sandbox simulates the complete platform environment — accounts, trading, funding, and webhooks — with accelerated timing so you can validate every flow in minutes instead of days. Work through the test scenarios below for each domain, then run through the integration checklist before requesting production access.
+
+## Test scenarios by domain
+
+Expand each domain to see the full set of scenarios and how to trigger them in the sandbox.
+
+<Accordion title="Account creation">
+
+| Scenario | How to test |
+| --- | --- |
+| Successful creation | Submit valid account data → verify `ACTIVE` status |
+| Validation failure | Omit required fields → verify error response |
+| Duplicate account | Create two accounts with the same email → verify `409` conflict |
+
+</Accordion>
+
+<Accordion title="KYC verification">
+
+| Scenario | How to test |
+| --- | --- |
+| Approval | Upload any valid image → auto-approved in sandbox |
+| Rejection | Use test rejection values (see dashboard) |
+| Missing document | Attempt operations before KYC → verify error |
+
+</Accordion>
+
+<Accordion title="Deposits">
+
+| Scenario | How to test |
+| --- | --- |
+| ACH success | Create deposit with valid Plaid options → transitions to `completed` |
+| Manual transfer | Create manual deposit → verify bank details in response |
+| Insufficient funds | Create withdrawal exceeding balance → verify `422` error |
+| Idempotency | Submit the same deposit twice with the same key → verify no duplicate |
+| Idempotency conflict | Submit a different body with the same key → verify error |
+
+</Accordion>
+
+<Accordion title="Trading">
+
+| Scenario | How to test |
+| --- | --- |
+| Market buy | Place market order during hours → verify `filled` status |
+| Limit order | Place limit below market → remains `accepted` |
+| Fractional buy | Use `notional` for dollar-based purchase |
+| Insufficient funds | Place order exceeding wallet balance |
+| Invalid symbol | Use non-existent symbol → verify error |
+
+</Accordion>
+
+<Accordion title="Webhooks">
+
+| Scenario | How to test |
+| --- | --- |
+| Event delivery | Register webhook, place order → verify event received |
+| Duplicate delivery | Process the same event twice → verify idempotent handling |
+| Failure retry | Return `500` from your webhook → verify Bluum retries |
+
+</Accordion>
+
+## Sandbox-specific behaviors
+
+The sandbox is designed to let you test quickly. Some behaviors differ from production by design.
+
+### Timing
+
+- Market orders fill **instantly** (no execution delay)
+- ACH deposits complete in **seconds** (not 1–3 business days)
+- KYC documents **auto-approve immediately**
+
+### Data reset
+
+- Sandbox data resets nightly at **midnight UTC**
+- All accounts, orders, and deposits are cleared on reset
+- Webhook registrations **persist** across resets
+
+<Warning>
+  Do not rely on sandbox data persisting between days. Seed your test accounts at the start of each test run, or build your test suite to create all required resources from scratch.
+</Warning>
+
+### Plaid sandbox
+
+- Use the Plaid sandbox credentials provided in your dashboard
+- Test bank: **"First Platypus Bank"** with credentials `user_good` / `pass_good`
+
+## Integration test checklist
+
+Run through every item below before requesting production access. Check off each scenario as you verify it works end-to-end:
+
+- [ ] Account creation with all required fields
+- [ ] Account creation with missing fields (error handling)
+- [ ] KYC document upload and status check
+- [ ] Plaid Link token creation
+- [ ] Plaid public token exchange
+- [ ] ACH deposit with idempotency key
+- [ ] Manual bank transfer deposit
+- [ ] Deposit status tracking (polling or webhook)
+- [ ] Market buy order
+- [ ] Limit buy order
+- [ ] Position query after fill
+- [ ] Sell order
+- [ ] Withdrawal with idempotency key
+- [ ] Withdrawal cancellation
+- [ ] Webhook registration and event receipt
+- [ ] Error handling for all `4xx`/`5xx` responses
+- [ ] Rate limit handling (`429` with exponential backoff)
+
+## Automated testing tips
+
+Structure your test suite to work cleanly with the sandbox environment. Use environment variables to switch between sandbox and production without code changes, and generate unique idempotency keys per test run to avoid conflicts:
+
+```javascript
+// Use environment variables for easy switching
+const config = {
+  baseUrl: process.env.BLUUM_BASE_URL || 'https://test-service.bluumfinance.com/v1',
+  apiKey: process.env.BLUUM_API_KEY,
+  apiSecret: process.env.BLUUM_API_SECRET
+};
+
+// Generate unique idempotency keys per test run
+const idempotencyKey = `test-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+
+// Clean up: note that sandbox resets nightly, but you may want to
+// cancel pending orders and withdrawals between test runs
+```
+
+<Tip>
+  Run your test suite against the sandbox as part of your CI/CD pipeline. Gate deployments on a green test run to catch regressions before they reach production.
+</Tip>
+
+## Next steps
+
+When every item on the checklist above passes, follow the [Going Live](/get-started/go-live) guide to complete the production readiness review and receive your production credentials.

@@ -1,0 +1,115 @@
+{
+  "projectType": "api-service",
+  "projectName": "Bluum Finance",
+  "projectDescription": "An investment infrastructure API that lets fintech companies embed accounts, compliance, trading, portfolio management, and custody into their products through a single REST API.",
+  "theme": "luma",
+  "primaryColor": "#9ca08c",
+  "lightColor": "#3d4625",
+  "darkColor": "#d0d5cd",
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Get Started",
+            "pages": [
+              "get-started/welcome",
+              "get-started/sandbox",
+              "get-started/quick-start-self-directed",
+              "get-started/quick-start-wealth",
+              "get-started/go-live"
+            ]
+          },
+          {
+            "group": "Platform",
+            "pages": [
+              "platform/overview",
+              "platform/authentication",
+              "platform/accounts",
+              "platform/compliance-kyc",
+              "platform/wallets",
+              "platform/funding",
+              "platform/trading",
+              "platform/assets",
+              "platform/positions",
+              "platform/webhooks",
+              "platform/errors",
+              "platform/idempotency"
+            ]
+          },
+          {
+            "group": "Guides",
+            "pages": [
+              "guides/overview",
+              "guides/self-directed/account-onboarding",
+              "guides/self-directed/kyc-verification",
+              "guides/self-directed/bank-linking",
+              "guides/self-directed/deposits-withdrawals",
+              "guides/self-directed/placing-orders",
+              "guides/self-directed/positions-portfolio",
+              "guides/operations/webhook-setup",
+              "guides/operations/market-data",
+              "guides/operations/testing-and-sandbox"
+            ]
+          },
+          {
+            "group": "Resources",
+            "pages": [
+              "resources/sdks",
+              "resources/postman",
+              "resources/ai-tools",
+              "resources/error-codes",
+              "resources/glossary",
+              "resources/support"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "API Reference",
+        "groups": [
+          {
+            "group": "Overview",
+            "pages": [
+              "api-reference/introduction"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "Self-directed investing: accounts, KYC, order execution, fractional shares",
+    "Wealth management: managed portfolios, risk assessment, financial planning, auto-invest",
+    "ACH funding via Plaid Link integration",
+    "Real-time and historical market data (quotes, bars, snapshots)",
+    "Webhook event notifications for orders, transfers, and KYC",
+    "Sandbox environment with simulated trading and instant order fills",
+    "Idempotency support for all financial operations",
+    "Structured error codes (BLUM-{STATUS}-{SEQ})"
+  ],
+  "publicApiSurface": [
+    "POST /accounts",
+    "GET /investors/{investor_id}",
+    "POST /documents",
+    "GET /documents/{document_id}",
+    "POST /investors/{investor_id}/funding-sources/plaid/link-token",
+    "POST /investors/{investor_id}/funding-sources/connect",
+    "POST /investors/{investor_id}/deposits",
+    "POST /investors/{investor_id}/withdrawals",
+    "POST /investors/{investor_id}/orders",
+    "GET /investors/{investor_id}/positions",
+    "GET /assets/search",
+    "GET /assets/{symbol}",
+    "GET /market-data/assets/{symbol}/quote",
+    "GET /market-data/assets/{symbol}/bars",
+    "GET /market-data/assets/{symbol}/snapshot",
+    "GET /market-data/markets/{code}/status",
+    "GET /market-data/markets/{code}/calendar",
+    "POST /webhooks",
+    "GET /webhooks",
+    "PATCH /webhooks/{webhook_id}",
+    "DELETE /webhooks/{webhook_id}"
+  ]
+}

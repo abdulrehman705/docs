@@ -1,0 +1,165 @@
+---
+title: "Funding & Transfers: Deposits, Withdrawals & Plaid"
+sidebarTitle: "Funding"
+description: "Connect bank accounts and move money into Bluum wallets. Covers ACH via Plaid, manual bank transfers, deposit and withdrawal lifecycle, and idempotency."
+---
+
+Funding covers how money moves between your user's bank account and their investment wallet. Bluum supports two deposit methods: automated ACH transfers via Plaid and manual bank transfers. Understanding the lifecycle of each transfer type helps you build reliable deposit and withdrawal flows in your product.
+
+## Deposit Methods
+
+| Method | How it works | Settlement time |
+|---|---|---|
+| **ACH via Plaid** (`ach`) | Bluum initiates an automated pull from the user's linked bank account | 1–3 business days |
+| **Manual Bank Transfer** (`manual_bank_transfer`) | The user pushes funds from their bank using Bluum-provided account and routing details | 1–5 business days (varies) |
+
+## Plaid Link Integration
+
+Before you can initiate an ACH deposit, the user must link a bank account through Plaid Link. This is a two-step process: your backend creates a Link token, and your frontend uses it to launch the Plaid Link widget.
+
+```text
+Your Frontend                    Your Backend                   Bluum API
+     │                                │                            │
+     │                                │──── Create Link Token ────►│
+     │                                │◄─── link_token ───────────│
+     │◄─── Launch Plaid Link ────────│                            │
+     │──── User selects bank ────────►│                            │
+     │──── public_token ─────────────►│                            │
+     │                                │──── Exchange Token ───────►│
+     │                                │◄─── Bank account details ──│
+```
+
+<Steps>
+  <Step title="Create a Link token">
+    Your backend requests a Plaid Link token from Bluum. This token authorizes the Plaid Link session for a specific investor.
+
+    ```bash
+    curl -X POST "$BASE_URL/investors/$INVESTOR_ID/funding-sources/plaid/link-token" \
+      -H "Authorization: Basic $AUTH" \
+      -H "Content-Type: application/json" \
+      -d '{ "enable_hosted_link": false }'
+    ```
+
+    <Tip>
+      Set `enable_hosted_link: true` to use a Plaid-hosted redirect flow instead of embedding the Plaid Link widget. The response will include a `hosted_link_url` that you redirect your user to.
+    </Tip>
+  </Step>
+  <Step title="Launch Plaid Link on the frontend">
+    Pass the `link_token` from the previous response to the Plaid Link SDK on your frontend. The user selects and authenticates their bank account. Plaid returns a `public_token` to your frontend on success.
+  </Step>
+  <Step title="Exchange the public token">
+    Send the `public_token` from your frontend to your backend, then exchange it with Bluum to complete the bank account connection:
+
+    ```bash
+    curl -X POST "$BASE_URL/investors/$INVESTOR_ID/funding-sources/connect" \
+      -H "Authorization: Basic $AUTH" \
+      -H "Content-Type: application/json" \
+      -d '{ "type": "plaid", "public_token": "public-sandbox-abc123" }'
+    ```
+
+    The response includes the linked bank account details (`itemId`, `accountId`) that you'll reference when creating ACH deposits and withdrawals.
+  </Step>
+</Steps>
+
+## Deposit Lifecycle
+
+Track deposits through the following status progression. Use the [GET deposit endpoint](#key-endpoints) or subscribe to [webhooks](/platform/webhooks) to receive status updates.
+
+```text
+pending → processing → received → completed
+                           │
+                        failed
+```
+
+| Status | Meaning |
+|---|---|
+| `pending` | Deposit has been created but the ACH transfer has not yet been initiated |
+| `processing` | The ACH transfer has been initiated with the bank |
+| `received` | Funds have been received by Bluum and are awaiting final settlement |
+| `completed` | Funds are available in the investor's wallet |
+| `failed` | The transfer failed — common causes include insufficient funds or a bank rejection |
+
+## Withdrawal Lifecycle
+
+Withdrawals follow a similar progression. Note that `pending` withdrawals can be canceled before they are submitted.
+
+```text
+pending → processing → submitted → completed
+    │                       │
+ canceled                failed
+```
+
+<Note>
+  Cancel a withdrawal while it is in `pending` status by calling the cancel endpoint. Once a withdrawal moves to `processing` or beyond, it cannot be reversed through the API.
+</Note>
+
+## Manual Bank Transfers
+
+When a user creates a deposit with `method: "manual_bank_transfer"`, the API response includes bank account details and a unique reference code. Display these to your user so they can initiate the transfer from their own bank.
+
+```json
+{
+  "method_details": {
+    "referenceCode": "BLUUM-ABC123XY",
+    "bankDetails": {
+      "bankName": "Choice Financial Group",
+      "accountName": "Bluum Finance, Inc.",
+      "accountNumber": "202534766488",
+      "routingNumber": "091311229",
+      "instructions": "Include reference code \"BLUUM-ABC123XY\" in your transfer memo."
+    }
+  },
+  "expires_at": "2025-06-22T10:45:00.000Z"
+}
+```
+
+<Warning>
+  The deposit expires at the time shown in `expires_at`. If the user does not send the funds before this deadline, the deposit record becomes invalid and they must create a new one.
+</Warning>
+
+### Download Wire Details as PDF
+
+For manual bank transfers, you can generate a formatted PDF with transfer instructions to share with the user or their bank:
+
+```bash
+curl -X GET "$BASE_URL/investors/$INVESTOR_ID/deposits/$DEPOSIT_ID/wire-details" \
+  -H "Authorization: Basic $AUTH" \
+  --output wire-details.pdf
+```
+
+The PDF includes domestic transfer details and, if configured, international SWIFT details. This endpoint is only available for deposits with `method: "manual_bank_transfer"`.
+
+## Idempotency
+
+Always include an `Idempotency-Key` header on deposit and withdrawal requests. If a request fails due to a network error and you need to retry, supplying the same idempotency key ensures Bluum returns the original response rather than creating a duplicate transfer.
+
+```bash
+curl -X POST "$BASE_URL/investors/$INVESTOR_ID/deposits" \
+  -H "Authorization: Basic $AUTH" \
+  -H "Content-Type: application/json" \
+  -H "Idempotency-Key: dep-unique-request-id-123" \
+  -d '{
+    "method": "ach",
+    "amount": "1000.00",
+    "currency": "USD"
+  }'
+```
+
+<Tip>
+  Use a deterministic key based on the operation — for example, a UUID tied to a specific user action or a hash of the transfer parameters. This makes it safe to retry on timeout without risk of double-charging your user. See [Idempotency](/platform/idempotency) for the full specification.
+</Tip>
+
+## Key Endpoints
+
+| Method | Path | Description |
+|---|---|---|
+| `POST` | `/investors/{investor_id}/funding-sources/plaid/link-token` | Create a Plaid Link token to start bank account linking |
+| `POST` | `/investors/{investor_id}/funding-sources/connect` | Exchange a Plaid public token to complete bank account linking |
+| `GET` | `/investors/{investor_id}/funding-sources` | List all linked funding sources for an investor |
+| `POST` | `/investors/{investor_id}/deposits` | Create a new deposit |
+| `GET` | `/investors/{investor_id}/deposits/{deposit_id}` | Get the status and details of a deposit |
+| `POST` | `/investors/{investor_id}/deposits/{deposit_id}/cancel` | Cancel a pending deposit |
+| `GET` | `/investors/{investor_id}/deposits/{deposit_id}/wire-details` | Download the wire details PDF for a manual bank transfer deposit |
+| `POST` | `/investors/{investor_id}/withdrawals` | Create a new withdrawal |
+| `GET` | `/investors/{investor_id}/withdrawals/{withdrawal_id}` | Get the status and details of a withdrawal |
+| `POST` | `/investors/{investor_id}/withdrawals/{withdrawal_id}/cancel` | Cancel a pending withdrawal |

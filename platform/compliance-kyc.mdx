@@ -1,0 +1,137 @@
+---
+title: "Compliance & KYC: Identity Verification for Accounts"
+sidebarTitle: "Compliance & KYC"
+description: "Complete KYC before trading on Bluum. Upload identity documents, track verification status, handle rejections, and monitor compliance workflow statuses."
+---
+
+Every investment account must complete Know Your Customer (KYC) verification before it can place trades. Bluum handles the compliance pipeline — your job is to collect the right documents from your users and submit them through the API. Bluum then verifies the documents against the account's identity information and updates the account status accordingly.
+
+## How KYC Works
+
+KYC verification follows a simple document-upload-and-review flow:
+
+```text
+Upload Documents → Processing → Approved / Rejected
+                       │
+                  (auto-approved
+                   in sandbox)
+```
+
+<Steps>
+  <Step title="Create an account">
+    Submit the account with full identity and contact information. See [Accounts](/platform/accounts) for required fields.
+  </Step>
+  <Step title="Upload identity documents">
+    Upload a government-issued photo ID and any other required documents using the `/documents` endpoint.
+  </Step>
+  <Step title="Bluum verifies the documents">
+    Bluum matches the documents against the account's identity information. In sandbox, documents are auto-approved instantly.
+  </Step>
+  <Step title="Account is approved or rejected">
+    The document status updates to `approved` or `rejected`. On approval, the account becomes eligible to trade.
+  </Step>
+</Steps>
+
+<Info>
+  In **sandbox**, documents are auto-approved immediately after upload — no manual review required. In **production**, verification typically completes within minutes but can take up to 24 hours for cases that require manual review.
+</Info>
+
+## Document Types
+
+| Type | Description | Required |
+|---|---|---|
+| `id_verification` | Government-issued photo ID: passport, driver's license, or national ID | Yes |
+| `proof_of_address` | Utility bill, bank statement, or tax document showing the user's current address | Situational |
+| `w9_form` | W-9 tax form | Situational |
+
+## Upload a Document
+
+Submit documents as `multipart/form-data`. Each upload links the document to an investor account:
+
+```bash
+curl -X POST "$BASE_URL/documents" \
+  -H "Authorization: Basic $AUTH" \
+  -F "account_id=$INVESTOR_ID" \
+  -F "purpose=kyc" \
+  -F "document_type=id_verification" \
+  -F "file=@/path/to/drivers-license.jpg"
+```
+
+<Note>
+  - `account_id` attaches the document to the specified investor account. Omit it to attach the document to the tenant instead. Use `user_id` to attach the document to a dashboard user.
+  - **Supported formats:** JPEG, PNG, PDF
+  - **Maximum file size:** 10 MB
+</Note>
+
+## Document Statuses
+
+After upload, poll the document endpoint or listen for webhooks to track verification progress:
+
+| Status | Meaning |
+|---|---|
+| `processing` | Document has been uploaded and verification is in progress |
+| `approved` | Verification was successful |
+| `rejected` | Verification failed — prompt the user to upload a new document |
+
+## Checking Document Status
+
+You have two options for tracking verification: polling or webhooks.
+
+<Tabs>
+  <Tab title="Polling">
+    ```bash
+    # Get a specific document by ID
+    curl -X GET "$BASE_URL/documents/{document_id}" \
+      -H "Authorization: Basic $AUTH"
+
+    # List all approved documents
+    curl -X GET "$BASE_URL/documents?status=approved" \
+      -H "Authorization: Basic $AUTH"
+    ```
+  </Tab>
+  <Tab title="Webhooks (recommended)">
+    Subscribe to document verification events to receive real-time notifications when verification completes, without polling. See [Webhooks](/platform/webhooks) for event types and setup instructions.
+  </Tab>
+</Tabs>
+
+<Tip>
+  Use webhooks rather than polling in production. Webhooks reduce latency and eliminate unnecessary API calls during the verification window.
+</Tip>
+
+## Handling Rejections
+
+When a document is rejected, the API response includes a reason code. Display a clear message to your user and prompt them to re-upload. There is no limit on upload attempts.
+
+| Rejection reason | Resolution |
+|---|---|
+| Document is blurry or illegible | Ask the user to re-upload using a higher-quality image or scan |
+| Document is expired | The user must upload a current, non-expired document |
+| Name mismatch | Verify that the name on the document exactly matches the `first_name` and `last_name` on the account |
+| Document type not accepted | Use a supported government-issued photo ID (passport, driver's license, or national ID) |
+
+## Compliance Workflow Statuses
+
+For more complex compliance scenarios, Bluum uses a multi-step compliance workflow that runs alongside document verification. Monitor these statuses for accounts that require additional review:
+
+| Status | Meaning |
+|---|---|
+| `IN_PROGRESS` | Compliance checks are currently running |
+| `PENDING_REVIEW` | One or more checks require manual review by Bluum's compliance team |
+| `APPROVED` | All compliance checks have passed |
+| `REJECTED` | One or more checks failed — contact Bluum support for next steps |
+| `SUSPENDED` | Account compliance has been suspended |
+| `EXPIRED` | The compliance verification window has expired; re-verification is required |
+
+<Warning>
+  Accounts in `SUSPENDED` or `REJECTED` compliance status cannot place trades or initiate withdrawals. Surface these states clearly in your UI and provide a path for the user to take corrective action.
+</Warning>
+
+## Key Endpoints
+
+| Method | Path | Description |
+|---|---|---|
+| `POST` | `/documents` | Upload a document (multipart/form-data) |
+| `GET` | `/documents` | List documents — filter by `account_id`, `user_id`, `purpose`, or `status` |
+| `GET` | `/documents/{document_id}` | Get details for a specific document |
+| `GET` | `/documents/{document_id}/download` | Download the raw document bytes |
+| `DELETE` | `/documents/{document_id}` | Delete a document |

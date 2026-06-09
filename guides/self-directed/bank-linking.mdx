@@ -1,0 +1,143 @@
+---
+title: "Link Your Bank Account via Plaid for ACH Transfers"
+sidebarTitle: "Bank Linking"
+description: "Connect a user's bank account using Plaid Link — create a link token, launch the Plaid SDK or hosted flow, then exchange the public token with Bluum."
+---
+
+Bank linking uses Plaid to securely connect the user's bank account for ACH deposits and withdrawals. The flow spans your frontend and backend: your server requests a link token from Bluum, your frontend launches Plaid Link with that token, and then your backend exchanges the resulting public token with Bluum to store the funding source.
+
+## Flow overview
+
+```text
+Your Frontend                    Your Backend                   Bluum API
+     │                                │                            │
+     │  User clicks "Link Bank"       │                            │
+     │───────────────────────────────►│                            │
+     │                                │── POST link-token ────────►│
+     │                                │◄── { link_token } ─────────│
+     │◄── Open Plaid Link ───────────│                            │
+     │                                │                            │
+     │  User selects bank & logs in   │                            │
+     │                                │                            │
+     │── public_token ───────────────►│                            │
+     │                                │── POST connect ───────────►│
+     │                                │◄── { bank details } ───────│
+     │◄── "Bank linked!" ────────────│                            │
+```
+
+<Steps>
+  <Step title="Create a link token">
+    Your backend requests a link token from Bluum. This token is short-lived and scoped to a single Plaid Link session.
+
+    ```bash
+    curl -X POST "$BASE_URL/investors/$INVESTOR_ID/funding-sources/plaid/link-token" \
+      -H "Authorization: Basic $AUTH" \
+      -H "Content-Type: application/json" \
+      -d '{ "enable_hosted_link": false }'
+    ```
+
+    **Response:**
+
+    ```json
+    {
+      "status": "success",
+      "data": {
+        "link_token": "link-sandbox-abc123def456",
+        "hosted_link_url": null
+      }
+    }
+    ```
+
+    Pass the `link_token` value to your frontend to initialize Plaid Link.
+
+    <Note>
+      Set `"enable_hosted_link": true` if you prefer to redirect users to a Plaid-hosted URL rather than embedding the Plaid SDK. See the **Hosted Link** section below.
+    </Note>
+  </Step>
+
+  <Step title="Launch Plaid Link in your frontend">
+    Use the Plaid Link SDK with the token you received in Step 1. When the user completes the flow, Plaid calls `onSuccess` with a `public_token` — send that token to your backend immediately.
+
+    ```javascript
+    const { open } = usePlaidLink({
+      token: linkToken, // from Step 1
+      onSuccess: (publicToken, metadata) => {
+        // Send publicToken to your backend
+        exchangeToken(publicToken);
+      },
+      onExit: (err, metadata) => {
+        // User closed Plaid Link or an error occurred
+        console.log('Plaid Link exited', err);
+      }
+    });
+    ```
+
+    Call `open()` in response to the user's "Link Bank Account" button click.
+
+    ### Hosted Link alternative
+
+    If you set `"enable_hosted_link": true` in Step 1, the response includes a `hosted_link_url` instead. Redirect the user to that URL — no Plaid SDK installation required. This is useful for mobile webviews or simpler integrations where embedding the SDK is impractical.
+
+    After the user completes the hosted flow, Plaid redirects them back to your app with the `public_token` as a query parameter.
+  </Step>
+
+  <Step title="Exchange the public token">
+    After the user completes Plaid Link, your backend sends the `public_token` to Bluum to create the funding source.
+
+    ```bash
+    curl -X POST "$BASE_URL/investors/$INVESTOR_ID/funding-sources/connect" \
+      -H "Authorization: Basic $AUTH" \
+      -H "Content-Type: application/json" \
+      -d '{ "type": "plaid", "public_token": "public-sandbox-abc123def456" }'
+    ```
+
+    **Response:**
+
+    ```json
+    {
+      "status": "success",
+      "data": {
+        "item": {
+          "itemId": "item_abc123",
+          "institutionName": "Chase Bank",
+          "accounts": [
+            {
+              "accountId": "acc_1234567890",
+              "accountName": "Checking Account",
+              "accountType": "depository",
+              "mask": "0000"
+            }
+          ]
+        }
+      }
+    }
+    ```
+
+    Store `itemId` and `accountId` — you'll pass these as `plaid_options` when initiating deposits and withdrawals.
+  </Step>
+</Steps>
+
+## Managing funding sources
+
+Retrieve all linked funding sources for an investor, or look up a specific one:
+
+```bash
+# List all linked funding sources
+curl -X GET "$BASE_URL/investors/$INVESTOR_ID/funding-sources" \
+  -H "Authorization: Basic $AUTH"
+
+# Get a specific funding source
+curl -X GET "$BASE_URL/investors/$INVESTOR_ID/funding-sources/$FUNDING_SOURCE_ID" \
+  -H "Authorization: Basic $AUTH"
+```
+
+## Multiple bank accounts
+
+<Note>
+  Users can link multiple bank accounts. Each call to the `connect` endpoint adds a new funding source. When initiating a deposit or withdrawal, specify which account to use by passing `plaid_options.item_id` and `plaid_options.account_id` in the request body.
+</Note>
+
+## Next steps
+
+- [Make a deposit](/guides/self-directed/deposits-withdrawals) to fund the account and prepare for trading
+- [Place an order](/guides/self-directed/placing-orders) once the account is funded

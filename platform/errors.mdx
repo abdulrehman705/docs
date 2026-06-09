@@ -1,0 +1,135 @@
+---
+title: "Error Handling — Codes, Retries & Rate Limits | Bluum"
+sidebarTitle: "Error Handling"
+description: "Understand Bluum's error format, code categories, common errors, rate limits, HTTP status codes, and how to implement a safe retry strategy with backoff."
+---
+
+All Bluum API errors return a consistent, structured format with machine-readable codes and human-readable messages. Build your error handling against these codes to give users clear feedback and to know exactly when a retry is safe.
+
+## Error response format
+
+Every error response body contains exactly two fields:
+
+```json
+{
+  "code": "BLUM-400-001",
+  "message": "Invalid quantity. Must be a positive number."
+}
+```
+
+<ResponseField name="code" type="string">
+  Structured error code following the pattern `BLUM-{HTTP_STATUS}-{SEQUENCE}`. Use this field for programmatic error handling — never parse the `message` string.
+</ResponseField>
+
+<ResponseField name="message" type="string">
+  Human-readable description of what went wrong. Suitable for logging but not for display to end users in production.
+</ResponseField>
+
+## Error code categories
+
+The HTTP status code embedded in each error code tells you the broad category of the problem.
+
+| Prefix | HTTP Status | Category |
+|---|---|---|
+| `BLUM-400-*` | 400 Bad Request | Validation failures, malformed requests |
+| `BLUM-401-*` | 401 Unauthorized | Authentication errors |
+| `BLUM-403-*` | 403 Forbidden | Authorization and permission errors |
+| `BLUM-404-*` | 404 Not Found | Resource doesn't exist or isn't accessible to your tenant |
+| `BLUM-409-*` | 409 Conflict | Duplicate resource or state conflict |
+| `BLUM-422-*` | 422 Unprocessable | Business rule violation |
+| `BLUM-429-*` | 429 Too Many Requests | Rate limit exceeded |
+| `BLUM-500-*` | 500 Internal Error | Server-side error |
+
+## Common errors
+
+### Authentication (401)
+
+Authentication errors mean the request couldn't be verified. Fix the credentials before retrying.
+
+| Code | Message | Resolution |
+|---|---|---|
+| `BLUM-401-001` | Missing authorization | Include the `Authorization: Basic <credentials>` header on every request |
+| `BLUM-401-002` | Malformed credentials | Verify your credentials are Base64-encoded in the format `API_KEY:API_SECRET` |
+| `BLUM-401-003` | Invalid credentials | Confirm the key and secret are correct and haven't been revoked in the dashboard |
+
+### Validation (400)
+
+Validation errors indicate the request body or query parameters didn't meet requirements.
+
+| Code | Message | Resolution |
+|---|---|---|
+| `BLUM-400-001` | Generic validation error | Read the `message` field for the specific field that failed |
+| `BLUM-400-002` | Missing required field | Include all required fields for the endpoint and order type you're using |
+| `BLUM-400-003` | Invalid field format | Match expected types and formats — dates as ISO 8601, amounts as numeric strings |
+
+### Not Found (404)
+
+| Code | Message | Resolution |
+|---|---|---|
+| `BLUM-404-001` | Resource not found | Verify the ID exists and was created under your tenant |
+
+### Rate Limiting (429)
+
+| Code | Message | Resolution |
+|---|---|---|
+| `BLUM-429-001` | Rate limit exceeded | Implement exponential backoff and respect the `Retry-After` response header |
+
+## Rate limits
+
+Bluum enforces per-key-pair rate limits to protect platform stability.
+
+| Environment | Limit |
+|---|---|
+| Sandbox | 10 requests/second per key pair |
+| Production | 25 requests/second per key pair |
+
+<Note>
+When you exceed the rate limit, the response includes a `Retry-After` header indicating how many seconds to wait before your next request. Always read this header rather than using a fixed wait time.
+</Note>
+
+## Retry strategy
+
+Implement exponential backoff with jitter for any retryable error. Retryable status codes are `429`, `500`, `502`, `503`, and `504`.
+
+```javascript
+async function requestWithRetry(url, options, maxRetries = 3) {
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    const response = await fetch(url, options);
+
+    if (response.status === 429) {
+      const retryAfter = parseInt(response.headers.get('Retry-After') || '1');
+      const delay = retryAfter * 1000 * Math.pow(2, attempt) + Math.random() * 1000;
+      await new Promise(resolve => setTimeout(resolve, delay));
+      continue;
+    }
+
+    if (response.status >= 500 && attempt < maxRetries - 1) {
+      const delay = Math.pow(2, attempt) * 1000 + Math.random() * 1000;
+      await new Promise(resolve => setTimeout(resolve, delay));
+      continue;
+    }
+
+    return response;
+  }
+  throw new Error('Max retries exceeded');
+}
+```
+
+<Warning>
+**Do not retry** `400`, `401`, `403`, `404`, or `422` errors. These are client-side issues — retrying won't change the outcome and will consume your rate limit budget. Fix the underlying problem in your request first.
+</Warning>
+
+## HTTP status codes
+
+| Code | Meaning | Retryable |
+|---|---|---|
+| `200` | Success (GET, PUT, DELETE) | N/A |
+| `201` | Created (POST) | N/A |
+| `400` | Bad request | No |
+| `401` | Unauthorized | No — fix credentials first |
+| `403` | Forbidden | No — check permissions |
+| `404` | Not found | No |
+| `409` | Conflict | No — resolve the conflict |
+| `422` | Unprocessable | No — fix the business logic issue |
+| `429` | Rate limited | Yes — with backoff |
+| `500` | Server error | Yes — with backoff |
