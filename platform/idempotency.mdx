@@ -4,11 +4,11 @@ sidebarTitle: "Idempotency"
 description: "Use Idempotency-Key headers to retry failed requests without creating duplicates. Learn when keys are required, how to generate them, and expiration rules."
 ---
 
-Idempotency ensures that retrying a failed request doesn't create duplicate side effects. For financial operations like deposits and withdrawals, a duplicate could mean moving money twice — so Bluum provides a built-in idempotency mechanism you should use on every mutating financial request.
+Idempotency ensures that retrying a failed request doesn't create duplicate side effects. For financial operations like deposits and withdrawals, a duplicate could mean moving money twice — so Buildmarkets provides a built-in idempotency mechanism you should use on every mutating financial request.
 
 ## Why idempotency matters
 
-Network failures and timeouts are inevitable. When your code retries a request after not receiving a response, you can't know whether the original request succeeded. Without idempotency, that retry could create a second deposit or a second trade. With an `Idempotency-Key` header, Bluum guarantees that only one operation executes — no matter how many times you send the same request.
+Network failures and timeouts are inevitable. When your code retries a request after not receiving a response, you can't know whether the original request succeeded. Without idempotency, that retry could create a second deposit or a second trade. With an `Idempotency-Key` header, Buildmarkets guarantees that only one operation executes — no matter how many times you send the same request.
 
 ## How it works
 
@@ -20,7 +20,7 @@ Network failures and timeouts are inevitable. When your code retries a request a
     Pass the key as the `Idempotency-Key` header alongside your normal `Authorization` and `Content-Type` headers.
   </Step>
   <Step title="Retry safely">
-    If the request fails or times out, resend it with the same key and the same body. Bluum returns the original response without reprocessing the operation.
+    If the request fails or times out, resend it with the same key and the same body. Buildmarkets returns the original response without reprocessing the operation.
   </Step>
 </Steps>
 
@@ -74,7 +74,7 @@ Prefix your keys with the operation type (`dep-` for deposits, `wdr-` for withdr
 
 ## Behavior
 
-Understanding exactly what Bluum does in each scenario helps you build the right retry logic.
+Understanding exactly what Buildmarkets does in each scenario helps you build the right retry logic.
 
 | Scenario | Result |
 |---|---|
@@ -84,7 +84,7 @@ Understanding exactly what Bluum does in each scenario helps you build the right
 | Different key, same body | Processed as a brand-new request — this **will** create a duplicate operation |
 
 <Warning>
-If you send the same key with a different request body, Bluum returns an error rather than silently processing the new body. Always keep the request body identical across retries of the same operation.
+If you send the same key with a different request body, Buildmarkets returns an error rather than silently processing the new body. Always keep the request body identical across retries of the same operation.
 </Warning>
 
 ## Key expiration
@@ -101,7 +101,7 @@ Idempotency keys expire after **24 hours**. After expiration, the same key strin
     Persist the key alongside your internal transaction record. This lets you reproduce the exact retry request for debugging and auditing.
   </Card>
   <Card title="Stay consistent on retry" icon="arrows-rotate">
-    Always resend the exact same body with the same key. Any change to the request body will cause Bluum to return an error instead of the cached response.
+    Always resend the exact same body with the same key. Any change to the request body will cause Buildmarkets to return an error instead of the cached response.
   </Card>
   <Card title="Use descriptive prefixes" icon="tag">
     Include the operation type in the key prefix (`dep-`, `wdr-`, `ord-`) so you can identify the operation from the key alone in logs.

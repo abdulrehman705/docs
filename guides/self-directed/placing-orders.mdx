@@ -1,10 +1,10 @@
 ---
 title: "Placing Orders: Market, Limit, Stop & Trailing Stop"
 sidebarTitle: "Placing Orders"
-description: "Place market, limit, stop, and trailing stop orders via the Bluum API. Includes buy-by-notional for fractional shares and full order status tracking."
+description: "Place market, limit, stop, and trailing stop orders via the Buildmarkets API. Includes buy-by-notional for fractional shares and full order status tracking."
 ---
 
-Once a user's account is funded, they're ready to trade. Bluum supports four order types — market, limit, stop, and trailing stop — each suited for different trading strategies. This guide shows you how to submit each order type, track execution status, and handle common errors.
+Once a user's account is funded, they're ready to trade. Buildmarkets supports four order types — market, limit, stop, and trailing stop — each suited for different trading strategies. This guide shows you how to submit each order type, track execution status, and handle common errors.
 
 ## Market orders
 
@@ -29,7 +29,7 @@ curl -X POST "$BASE_URL/investors/$INVESTOR_ID/orders" \
 
 ### Buy by dollar amount (fractional shares)
 
-Invest a fixed dollar amount in a stock — Bluum calculates the fractional share quantity automatically:
+Invest a fixed dollar amount in a stock — Buildmarkets calculates the fractional share quantity automatically:
 
 ```bash
 curl -X POST "$BASE_URL/investors/$INVESTOR_ID/orders" \
@@ -170,5 +170,5 @@ curl -X POST "$BASE_URL/webhooks" \
 |-------|-------|-----------|
 | Insufficient funds | Wallet balance is too low for the order | Prompt the user to [deposit more funds](/guides/self-directed/deposits-withdrawals) |
 | Market closed | Order placed outside trading hours | Use `time_in_force: "gtc"` or inform the user to retry when markets open |
-| Invalid symbol | Asset not found or not tradable on Bluum | Verify the symbol using `/assets/search` |
+| Invalid symbol | Asset not found or not tradable on Buildmarkets | Verify the symbol using `/assets/search` |
 | Invalid quantity | Zero, negative, or exceeds position size (for sells) | Check the quantity value and the user's current [position](/guides/self-directed/positions-portfolio) |

@@ -1,10 +1,10 @@
 ---
 title: "Compliance & KYC: Identity Verification for Accounts"
 sidebarTitle: "Compliance & KYC"
-description: "Complete KYC before trading on Bluum. Upload identity documents, track verification status, handle rejections, and monitor compliance workflow statuses."
+description: "Complete KYC before trading on Buildmarkets. Upload identity documents, track verification status, handle rejections, and monitor compliance workflow statuses."
 ---
 
-Every investment account must complete Know Your Customer (KYC) verification before it can place trades. Bluum handles the compliance pipeline — your job is to collect the right documents from your users and submit them through the API. Bluum then verifies the documents against the account's identity information and updates the account status accordingly.
+Every investment account must complete Know Your Customer (KYC) verification before it can place trades. Buildmarkets handles the compliance pipeline — your job is to collect the right documents from your users and submit them through the API. Buildmarkets then verifies the documents against the account's identity information and updates the account status accordingly.
 
 ## How KYC Works
 
@@ -24,8 +24,8 @@ Upload Documents → Processing → Approved / Rejected
   <Step title="Upload identity documents">
     Upload a government-issued photo ID and any other required documents using the `/documents` endpoint.
   </Step>
-  <Step title="Bluum verifies the documents">
-    Bluum matches the documents against the account's identity information. In sandbox, documents are auto-approved instantly.
+  <Step title="Buildmarkets verifies the documents">
+    Buildmarkets matches the documents against the account's identity information. In sandbox, documents are auto-approved instantly.
   </Step>
   <Step title="Account is approved or rejected">
     The document status updates to `approved` or `rejected`. On approval, the account becomes eligible to trade.
@@ -111,14 +111,14 @@ When a document is rejected, the API response includes a reason code. Display a 
 
 ## Compliance Workflow Statuses
 
-For more complex compliance scenarios, Bluum uses a multi-step compliance workflow that runs alongside document verification. Monitor these statuses for accounts that require additional review:
+For more complex compliance scenarios, Buildmarkets uses a multi-step compliance workflow that runs alongside document verification. Monitor these statuses for accounts that require additional review:
 
 | Status | Meaning |
 |---|---|
 | `IN_PROGRESS` | Compliance checks are currently running |
-| `PENDING_REVIEW` | One or more checks require manual review by Bluum's compliance team |
+| `PENDING_REVIEW` | One or more checks require manual review by Buildmarkets' compliance team |
 | `APPROVED` | All compliance checks have passed |
-| `REJECTED` | One or more checks failed — contact Bluum support for next steps |
+| `REJECTED` | One or more checks failed — contact Buildmarkets support for next steps |
 | `SUSPENDED` | Account compliance has been suspended |
 | `EXPIRED` | The compliance verification window has expired; re-verification is required |
 

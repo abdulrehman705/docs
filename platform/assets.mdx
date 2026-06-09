@@ -1,10 +1,10 @@
 ---
 title: "Assets & Market Data — Live Quotes, Bars & Calendars"
 sidebarTitle: "Assets"
-description: "Search tradable securities, retrieve real-time quotes, OHLCV bars, snapshots, and chart data. Check market status and trading calendars via the Bluum API."
+description: "Search tradable securities, retrieve real-time quotes, OHLCV bars, snapshots, and chart data. Check market status and trading calendars via the Buildmarkets API."
 ---
 
-Assets are the tradable instruments available through Bluum — stocks, ETFs, and other securities. Market Data provides real-time and historical pricing, market status, and trading calendars to power the investment experience in your product.
+Assets are the tradable instruments available through Buildmarkets — stocks, ETFs, and other securities. Market Data provides real-time and historical pricing, market status, and trading calendars to power the investment experience in your product.
 
 ## Asset classes
 
@@ -75,7 +75,7 @@ A successful `GET /assets/{symbol}` returns an asset object like the following:
 </ResponseField>
 
 <ResponseField name="tradable" type="boolean">
-  `true` if the asset can be traded through Bluum. Always verify this before submitting an order.
+  `true` if the asset can be traded through Buildmarkets. Always verify this before submitting an order.
 </ResponseField>
 
 <ResponseField name="fractionable" type="boolean">

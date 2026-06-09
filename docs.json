@@ -1,7 +1,8 @@
 {
   "$schema": "https://mintlify.com/docs.json",
-  "theme": "luma",
+  "theme": "mint",
   "name": "Buildmarkets",
+  "description": "Build, launch, & scale compliant investment products. Access Buildmarkets' API docs, SDKs, & tutorials to embed trading, fractional shares, & custody.",
   "colors": {
     "primary": "#3E5FFE",
     "light": "#8D98FF",
@@ -27,7 +28,19 @@
     "light": "/logo/light.png",
     "dark": "/logo/dark.png"
   },
+  "api": {
+    "openapi": {
+      "source": "api-reference/openapi.yaml"
+    },
+    "playground": {}
+  },
   "navbar": {
+    "links": [
+      {
+        "href": "mailto:ope@bluumfinance.com",
+        "label": "Support"
+      }
+    ],
     "primary": {
       "type": "button",
       "label": "Dashboard",
@@ -35,22 +48,48 @@
     }
   },
   "navigation": {
+    "global": {
+      "anchors": [
+        {
+          "anchor": "Buildmarkets",
+          "icon": "globe",
+          "href": "https://bluumfinance.com"
+        },
+        {
+          "anchor": "Status",
+          "icon": "chart-simple",
+          "href": "https://status.bluumfinance.com"
+        }
+      ]
+    },
     "tabs": [
       {
-        "tab": "Documentation",
+        "tab": "Home",
+        "icon": "home",
+        "pages": [
+          "index"
+        ]
+      },
+      {
+        "tab": "Get Started",
         "groups": [
           {
             "group": "Get Started",
             "pages": [
               "get-started/welcome",
-              "get-started/sandbox",
               "get-started/quick-start-self-directed",
               "get-started/quick-start-wealth",
+              "get-started/sandbox",
               "get-started/go-live"
             ]
-          },
+          }
+        ]
+      },
+      {
+        "tab": "Platform",
+        "groups": [
           {
-            "group": "Platform",
+            "group": "Core Concepts",
             "pages": [
               "platform/overview",
               "platform/authentication",
@@ -60,14 +99,24 @@
               "platform/funding",
               "platform/trading",
               "platform/assets",
-              "platform/positions",
+              "platform/positions"
+            ]
+          },
+          {
+            "group": "Infrastructure",
+            "pages": [
               "platform/webhooks",
               "platform/errors",
               "platform/idempotency"
             ]
-          },
+          }
+        ]
+      },
+      {
+        "tab": "Guides",
+        "groups": [
           {
-            "group": "Guides",
+            "group": "Self-Directed Investing",
             "pages": [
               "guides/overview",
               "guides/self-directed/account-onboarding",
@@ -75,36 +124,81 @@
               "guides/self-directed/bank-linking",
               "guides/self-directed/deposits-withdrawals",
               "guides/self-directed/placing-orders",
-              "guides/self-directed/positions-portfolio",
-              "guides/operations/webhook-setup",
-              "guides/operations/market-data",
-              "guides/operations/testing-and-sandbox"
+              "guides/self-directed/positions-portfolio"
             ]
           },
           {
-            "group": "Resources",
+            "group": "Platform Operations",
             "pages": [
-              "resources/sdks",
-              "resources/postman",
-              "resources/ai-tools",
-              "resources/error-codes",
-              "resources/glossary",
-              "resources/support"
+              "guides/operations/webhook-setup",
+              "guides/operations/market-data",
+              "guides/operations/testing-and-sandbox"
             ]
           }
         ]
       },
       {
-        "tab": "API Reference",
+        "tab": "Wealth Management",
+        "pages": [
+          "wealth"
+        ]
+      },
+      {
+        "tab": "Changelog",
+        "icon": "clock-rotate-left",
+        "pages": [
+          "changelog"
+        ]
+      },
+      {
+        "tab": "Resources",
         "groups": [
           {
-            "group": "Overview",
+            "group": "Developer Tools",
             "pages": [
-              "api-reference/introduction"
+              "resources/sdks",
+              "resources/postman",
+              "resources/ai-tools"
+            ]
+          },
+          {
+            "group": "Reference",
+            "pages": [
+              "resources/error-codes",
+              "resources/glossary"
+            ]
+          },
+          {
+            "group": "Support",
+            "pages": [
+              "resources/support"
             ]
           }
         ]
       }
     ]
+  },
+  "footer": {
+    "socials": {
+      "x": "https://x.com/bluumfinance",
+      "github": "https://github.com/bluum-finance",
+      "linkedin": "https://www.linkedin.com/company/bluum-finance"
+    }
+  },
+  "contextual": {
+    "options": [
+      "copy",
+      "view",
+      "chatgpt",
+      "claude",
+      "perplexity",
+      "mcp",
+      "vscode"
+    ],
+    "display": "header"
+  },
+  "styling": {
+    "latex": false,
+    "codeblocks": "system"
   }
 }

@@ -1,15 +1,15 @@
 ---
 title: "Link Your Bank Account via Plaid for ACH Transfers"
 sidebarTitle: "Bank Linking"
-description: "Connect a user's bank account using Plaid Link — create a link token, launch the Plaid SDK or hosted flow, then exchange the public token with Bluum."
+description: "Connect a user's bank account using Plaid Link — create a link token, launch the Plaid SDK or hosted flow, then exchange the public token with Buildmarkets."
 ---
 
-Bank linking uses Plaid to securely connect the user's bank account for ACH deposits and withdrawals. The flow spans your frontend and backend: your server requests a link token from Bluum, your frontend launches Plaid Link with that token, and then your backend exchanges the resulting public token with Bluum to store the funding source.
+Bank linking uses Plaid to securely connect the user's bank account for ACH deposits and withdrawals. The flow spans your frontend and backend: your server requests a link token from Buildmarkets, your frontend launches Plaid Link with that token, and then your backend exchanges the resulting public token with Buildmarkets to store the funding source.
 
 ## Flow overview
 
 ```text
-Your Frontend                    Your Backend                   Bluum API
+Your Frontend                    Your Backend                   Buildmarkets API
      │                                │                            │
      │  User clicks "Link Bank"       │                            │
      │───────────────────────────────►│                            │
@@ -27,7 +27,7 @@ Your Frontend                    Your Backend                   Bluum API
 
 <Steps>
   <Step title="Create a link token">
-    Your backend requests a link token from Bluum. This token is short-lived and scoped to a single Plaid Link session.
+    Your backend requests a link token from Buildmarkets. This token is short-lived and scoped to a single Plaid Link session.
 
     ```bash
     curl -X POST "$BASE_URL/investors/$INVESTOR_ID/funding-sources/plaid/link-token" \
@@ -82,7 +82,7 @@ Your Frontend                    Your Backend                   Bluum API
   </Step>
 
   <Step title="Exchange the public token">
-    After the user completes Plaid Link, your backend sends the `public_token` to Bluum to create the funding source.
+    After the user completes Plaid Link, your backend sends the `public_token` to Buildmarkets to create the funding source.
 
     ```bash
     curl -X POST "$BASE_URL/investors/$INVESTOR_ID/funding-sources/connect" \

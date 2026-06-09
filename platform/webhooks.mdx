@@ -1,20 +1,20 @@
 ---
-title: "Webhooks — Real-Time Notifications | Bluum Finance"
+title: "Webhooks — Real-Time Notifications | Buildmarkets"
 sidebarTitle: "Webhooks"
 description: "Receive real-time push notifications for orders, transfers, and KYC decisions. Register endpoints, subscribe to events, handle retries, and test locally."
 ---
 
-Webhooks deliver real-time notifications to your server when events occur in Bluum — orders filling, deposits completing, KYC decisions, and more. Use webhooks instead of polling to build responsive, event-driven integrations.
+Webhooks deliver real-time notifications to your server when events occur in Buildmarkets — orders filling, deposits completing, KYC decisions, and more. Use webhooks instead of polling to build responsive, event-driven integrations.
 
 ## How webhooks work
 
-When an event occurs in Bluum, the platform immediately sends an HTTP `POST` request containing a structured JSON payload to your registered endpoint. Your server processes the event and acknowledges receipt by returning a `2xx` status code.
+When an event occurs in Buildmarkets, the platform immediately sends an HTTP `POST` request containing a structured JSON payload to your registered endpoint. Your server processes the event and acknowledges receipt by returning a `2xx` status code.
 
 ```
-Event occurs in Bluum
+Event occurs in Buildmarkets
         │
         ▼
-Bluum sends POST to your endpoint
+Buildmarkets sends POST to your endpoint
         │
         ▼
 Your server responds 2xx ──── (retry with backoff on failure)
@@ -24,14 +24,14 @@ Your server responds 2xx ──── (retry with backoff on failure)
   <Step title="Register your endpoint">
     Create a webhook subscription by providing a publicly reachable HTTPS URL and the list of event types you want to receive.
   </Step>
-  <Step title="Bluum sends events">
-    When a subscribed event fires, Bluum sends a `POST` request with a JSON payload to your URL within seconds.
+  <Step title="Buildmarkets sends events">
+    When a subscribed event fires, Buildmarkets sends a `POST` request with a JSON payload to your URL within seconds.
   </Step>
   <Step title="Acknowledge receipt">
     Return any `2xx` HTTP status code within 30 seconds to confirm delivery. Process the event asynchronously if your logic takes longer.
   </Step>
   <Step title="Automatic retries">
-    If your endpoint doesn't respond with `2xx` in time, Bluum retries with exponential backoff until delivery succeeds or retries are exhausted.
+    If your endpoint doesn't respond with `2xx` in time, Buildmarkets retries with exponential backoff until delivery succeeds or retries are exhausted.
   </Step>
 </Steps>
 
@@ -140,7 +140,7 @@ Every event delivery follows the same envelope structure: an `event` name, a `ti
 </ResponseField>
 
 <ResponseField name="timestamp" type="string">
-  ISO 8601 timestamp of when the event occurred in Bluum.
+  ISO 8601 timestamp of when the event occurred in Buildmarkets.
 </ResponseField>
 
 <ResponseField name="data" type="object">
@@ -149,7 +149,7 @@ Every event delivery follows the same envelope structure: an `event` name, a `ti
 
 ## Retry behavior
 
-If your endpoint doesn't respond with `2xx` within **30 seconds**, Bluum automatically retries with exponential backoff:
+If your endpoint doesn't respond with `2xx` within **30 seconds**, Buildmarkets automatically retries with exponential backoff:
 
 | Attempt | Delay |
 |---|---|
@@ -160,7 +160,7 @@ If your endpoint doesn't respond with `2xx` within **30 seconds**, Bluum automat
 | 5th retry | ~8 hours |
 
 <Warning>
-After all retries are exhausted, the event is sent to a dead letter queue. Contact Bluum support to replay failed events if your endpoint was unavailable for an extended period.
+After all retries are exhausted, the event is sent to a dead letter queue. Contact Buildmarkets support to replay failed events if your endpoint was unavailable for an extended period.
 </Warning>
 
 ## Best practices
@@ -173,7 +173,7 @@ After all retries are exhausted, the event is sent to a dead letter queue. Conta
     The same event may be delivered more than once during retries. Use the event `id` for deduplication.
   </Card>
   <Card title="Verify signatures" icon="shield-check">
-    Validate the webhook signature header on every incoming request to ensure it came from Bluum and hasn't been tampered with.
+    Validate the webhook signature header on every incoming request to ensure it came from Buildmarkets and hasn't been tampered with.
   </Card>
   <Card title="Use HTTPS" icon="lock">
     Webhook endpoints must use HTTPS in production. HTTP endpoints are accepted only in sandbox environments.

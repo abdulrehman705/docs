@@ -1,24 +1,24 @@
 ---
 title: "Funding & Transfers: Deposits, Withdrawals & Plaid"
 sidebarTitle: "Funding"
-description: "Connect bank accounts and move money into Bluum wallets. Covers ACH via Plaid, manual bank transfers, deposit and withdrawal lifecycle, and idempotency."
+description: "Connect bank accounts and move money into Buildmarkets wallets. Covers ACH via Plaid, manual bank transfers, deposit and withdrawal lifecycle, and idempotency."
 ---
 
-Funding covers how money moves between your user's bank account and their investment wallet. Bluum supports two deposit methods: automated ACH transfers via Plaid and manual bank transfers. Understanding the lifecycle of each transfer type helps you build reliable deposit and withdrawal flows in your product.
+Funding covers how money moves between your user's bank account and their investment wallet. Buildmarkets supports two deposit methods: automated ACH transfers via Plaid and manual bank transfers. Understanding the lifecycle of each transfer type helps you build reliable deposit and withdrawal flows in your product.
 
 ## Deposit Methods
 
 | Method | How it works | Settlement time |
 |---|---|---|
-| **ACH via Plaid** (`ach`) | Bluum initiates an automated pull from the user's linked bank account | 1–3 business days |
-| **Manual Bank Transfer** (`manual_bank_transfer`) | The user pushes funds from their bank using Bluum-provided account and routing details | 1–5 business days (varies) |
+| **ACH via Plaid** (`ach`) | Buildmarkets initiates an automated pull from the user's linked bank account | 1–3 business days |
+| **Manual Bank Transfer** (`manual_bank_transfer`) | The user pushes funds from their bank using Buildmarkets-provided account and routing details | 1–5 business days (varies) |
 
 ## Plaid Link Integration
 
 Before you can initiate an ACH deposit, the user must link a bank account through Plaid Link. This is a two-step process: your backend creates a Link token, and your frontend uses it to launch the Plaid Link widget.
 
 ```text
-Your Frontend                    Your Backend                   Bluum API
+Your Frontend                    Your Backend                   Buildmarkets API
      │                                │                            │
      │                                │──── Create Link Token ────►│
      │                                │◄─── link_token ───────────│
@@ -31,7 +31,7 @@ Your Frontend                    Your Backend                   Bluum API
 
 <Steps>
   <Step title="Create a Link token">
-    Your backend requests a Plaid Link token from Bluum. This token authorizes the Plaid Link session for a specific investor.
+    Your backend requests a Plaid Link token from Buildmarkets. This token authorizes the Plaid Link session for a specific investor.
 
     ```bash
     curl -X POST "$BASE_URL/investors/$INVESTOR_ID/funding-sources/plaid/link-token" \
@@ -48,7 +48,7 @@ Your Frontend                    Your Backend                   Bluum API
     Pass the `link_token` from the previous response to the Plaid Link SDK on your frontend. The user selects and authenticates their bank account. Plaid returns a `public_token` to your frontend on success.
   </Step>
   <Step title="Exchange the public token">
-    Send the `public_token` from your frontend to your backend, then exchange it with Bluum to complete the bank account connection:
+    Send the `public_token` from your frontend to your backend, then exchange it with Buildmarkets to complete the bank account connection:
 
     ```bash
     curl -X POST "$BASE_URL/investors/$INVESTOR_ID/funding-sources/connect" \
@@ -75,7 +75,7 @@ pending → processing → received → completed
 |---|---|
 | `pending` | Deposit has been created but the ACH transfer has not yet been initiated |
 | `processing` | The ACH transfer has been initiated with the bank |
-| `received` | Funds have been received by Bluum and are awaiting final settlement |
+| `received` | Funds have been received by Buildmarkets and are awaiting final settlement |
 | `completed` | Funds are available in the investor's wallet |
 | `failed` | The transfer failed — common causes include insufficient funds or a bank rejection |
 
@@ -103,7 +103,7 @@ When a user creates a deposit with `method: "manual_bank_transfer"`, the API res
     "referenceCode": "BLUUM-ABC123XY",
     "bankDetails": {
       "bankName": "Choice Financial Group",
-      "accountName": "Bluum Finance, Inc.",
+      "accountName": "Buildmarkets, Inc.",
       "accountNumber": "202534766488",
       "routingNumber": "091311229",
       "instructions": "Include reference code \"BLUUM-ABC123XY\" in your transfer memo."
@@ -131,7 +131,7 @@ The PDF includes domestic transfer details and, if configured, international SWI
 
 ## Idempotency
 
-Always include an `Idempotency-Key` header on deposit and withdrawal requests. If a request fails due to a network error and you need to retry, supplying the same idempotency key ensures Bluum returns the original response rather than creating a duplicate transfer.
+Always include an `Idempotency-Key` header on deposit and withdrawal requests. If a request fails due to a network error and you need to retry, supplying the same idempotency key ensures Buildmarkets returns the original response rather than creating a duplicate transfer.
 
 ```bash
 curl -X POST "$BASE_URL/investors/$INVESTOR_ID/deposits" \

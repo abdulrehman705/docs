@@ -1,18 +1,18 @@
 ---
-title: "Bluum Finance: Investment Infrastructure API for Fintechs"
+title: "Buildmarkets: Investment Infrastructure API for Fintechs"
 sidebarTitle: "Introduction"
-description: "Bluum Finance is an investment infrastructure API. Embed brokerage accounts, order execution, ACH funding, KYC, and compliance in one integration."
+description: "Buildmarkets is an investment infrastructure API. Embed brokerage accounts, order execution, ACH funding, KYC, and compliance in one integration."
 ---
 
-Bluum Finance is an investment infrastructure API for fintech companies. It sits between your application and the financial system — handling account onboarding, identity verification, custodian routing, order execution, wallet management, and regulatory compliance. You build the user experience; Bluum provides the rails.
+Buildmarkets is an investment infrastructure API for fintech companies. It sits between your application and the financial system — handling account onboarding, identity verification, custodian routing, order execution, wallet management, and regulatory compliance. You build the user experience; Buildmarkets provides the rails.
 
 ## How it works
 
-Your application makes REST calls to the Bluum API. Bluum orchestrates all downstream operations — creating brokerage accounts with custodians, routing orders to exchanges, initiating ACH transfers, running identity verification — and returns clean, normalized responses. Webhook events notify you in real time when asynchronous operations complete (order fills, deposit arrivals, KYC decisions).
+Your application makes REST calls to the Buildmarkets API. Buildmarkets orchestrates all downstream operations — creating brokerage accounts with custodians, routing orders to exchanges, initiating ACH transfers, running identity verification — and returns clean, normalized responses. Webhook events notify you in real time when asynchronous operations complete (order fills, deposit arrivals, KYC decisions).
 
 ```text
 ┌─────────────┐      ┌─────────────────┐      ┌──────────────────┐
-│  Your App   │ ───► │   Bluum API     │ ───► │  Financial System │
+│  Your App   │ ───► │   Buildmarkets API     │ ───► │  Financial System │
 │  (Frontend) │ ◄─── │  (Orchestrator) │ ◄─── │  (Custodians,    │
 └─────────────┘      └─────────────────┘      │   Banks, KYC)    │
                                                └──────────────────┘
@@ -20,11 +20,11 @@ Your application makes REST calls to the Bluum API. Bluum orchestrates all downs
 
 ## Two integration models
 
-Bluum supports two ways to embed investing, depending on your product:
+Buildmarkets supports two ways to embed investing, depending on your product:
 
 | | Self-Directed Investing | Wealth Management |
 |---|---|---|
-| **What it is** | Your users decide what to buy and sell | Bluum's engine manages portfolios on behalf of your users |
+| **What it is** | Your users decide what to buy and sell | Buildmarkets' engine manages portfolios on behalf of your users |
 | **Account type** | `individual` with `management_type: "self_directed"` | `individual` with `management_type: "advised"` |
 | **Who places trades** | End user (through your UI) | Strategy engine (via portfolios and auto-invest) |
 | **Wealth APIs needed** | No | Yes (profiles, risk, goals, portfolios) |

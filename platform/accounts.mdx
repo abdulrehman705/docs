@@ -1,10 +1,10 @@
 ---
 title: "Investment Accounts: Types, Lifecycle & Configuration"
 sidebarTitle: "Accounts"
-description: "Create and manage Bluum investment accounts. Covers account types, management modes, lifecycle statuses, required fields, and links to wallets and orders."
+description: "Create and manage Buildmarkets investment accounts. Covers account types, management modes, lifecycle statuses, required fields, and links to wallets and orders."
 ---
 
-An **Account** represents an investment account for one of your end users. It is the root object in the Bluum data model — everything else (wallets, orders, positions, and wealth management features) connects back to it. Creating an account is the first step in onboarding any investor.
+An **Account** represents an investment account for one of your end users. It is the root object in the Buildmarkets data model — everything else (wallets, orders, positions, and wealth management features) connects back to it. Creating an account is the first step in onboarding any investor.
 
 ## Account Types
 
@@ -26,7 +26,7 @@ The `management_type` field controls whether the account is self-directed or pro
 | `advised` | Managed portfolios, financial planning, and robo-advisory | Yes |
 
 <Note>
-  Set `management_type: "advised"` to unlock wealth management APIs including Investor Profiles, Risk Assessments, Financial Plans, and Portfolios. Bluum automatically creates an Investor Profile when you create an `advised` account.
+  Set `management_type: "advised"` to unlock wealth management APIs including Investor Profiles, Risk Assessments, Financial Plans, and Portfolios. Buildmarkets automatically creates an Investor Profile when you create an `advised` account.
 </Note>
 
 ## Account Lifecycle
@@ -176,7 +176,7 @@ These optional fields configure trading behavior and tax treatment for the accou
 
 ## Account Relationships
 
-An account is the hub object that connects to every other resource in the Bluum platform:
+An account is the hub object that connects to every other resource in the Buildmarkets platform:
 
 ```text
 Account

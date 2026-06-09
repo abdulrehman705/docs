@@ -1,14 +1,14 @@
 ---
-title: "Go Live: Deploy Your Bluum Finance Integration to Production"
+title: "Go Live: Deploy Your Buildmarkets Integration to Production"
 sidebarTitle: "Go Live"
-description: "Complete the production readiness checklist, request production credentials, deploy to the live Bluum environment, and configure observability."
+description: "Complete the production readiness checklist, request production credentials, deploy to the live Buildmarkets environment, and configure observability."
 ---
 
-Moving from sandbox to production involves three things: confirming your integration is solid, requesting production credentials from the Bluum team, and deploying with proper observability in place. This page walks you through each step.
+Moving from sandbox to production involves three things: confirming your integration is solid, requesting production credentials from the Buildmarkets team, and deploying with proper observability in place. This page walks you through each step.
 
 ## Production readiness checklist
 
-Complete every item below before requesting production access. The Bluum team will review your sandbox integration as part of the approval process.
+Complete every item below before requesting production access. The Buildmarkets team will review your sandbox integration as part of the approval process.
 
 <Steps>
   <Step title="Integration tested in sandbox">
@@ -71,7 +71,7 @@ Complete every item below before requesting production access. The Bluum team wi
   </Step>
 
   <Step title="Compliance requirements met">
-    Contact your Bluum account manager to confirm:
+    Contact your Buildmarkets account manager to confirm:
 
     - [ ] Your KYC document collection meets regulatory requirements
     - [ ] Required disclosures and agreements are presented to end users
@@ -89,7 +89,7 @@ Once you've completed the checklist, email `support@bluum.finance` with the foll
 2. A description of your product and integration model (Self-Directed or Wealth Management)
 3. Confirmation that you've completed the readiness checklist above
 
-Bluum reviews your sandbox integration and compliance setup, then issues production API credentials upon approval.
+Buildmarkets reviews your sandbox integration and compliance setup, then issues production API credentials upon approval.
 
 ---
 
@@ -124,7 +124,7 @@ Bluum reviews your sandbox integration and compliance setup, then issues product
     - [ ] First deposit and order
     - [ ] Webhook delivery to your production endpoint
 
-    Log the `X-Request-Id` header from every response. Include it in any support tickets to help the Bluum team trace requests quickly.
+    Log the `X-Request-Id` header from every response. Include it in any support tickets to help the Buildmarkets team trace requests quickly.
   </Step>
 </Steps>
 
@@ -139,7 +139,7 @@ Rotate API keys every 90 days. Follow this sequence to avoid downtime:
     In your dashboard, navigate to **Settings > API Keys** and create a new key pair. Copy the secret immediately — it's only shown once.
   </Step>
   <Step title="Deploy the new credentials">
-    Update your production environment with the new key and secret. Verify that your application starts successfully and can reach the Bluum API.
+    Update your production environment with the new key and secret. Verify that your application starts successfully and can reach the Buildmarkets API.
   </Step>
   <Step title="Confirm connectivity">
     Run the smoke test against production with the new credentials:
@@ -171,7 +171,7 @@ Log every API request and response. At minimum, capture:
 - `X-Request-Id` response header
 - Response time (latency)
 
-The `X-Request-Id` is the most important field — include it in every support ticket so the Bluum team can trace the request end-to-end.
+The `X-Request-Id` is the most important field — include it in every support ticket so the Buildmarkets team can trace the request end-to-end.
 
 ### Monitoring
 
@@ -179,7 +179,7 @@ Set up alerts for the following conditions:
 
 | Condition | Why it matters |
 |---|---|
-| Elevated 5xx error rate | Indicates a Bluum-side or integration issue requiring attention |
+| Elevated 5xx error rate | Indicates a Buildmarkets-side or integration issue requiring attention |
 | Repeated 429 responses | Your application is hitting rate limits; apply backoff or reduce concurrency |
 | Orders stuck in `accepted` status | May indicate an exchange routing issue; escalate to support |
 | Webhook delivery failures | Events are being missed; your event-driven flows may be stalled |
@@ -188,7 +188,7 @@ Set up alerts for the following conditions:
 
 ## Support
 
-Reach the Bluum team through the appropriate channel for your issue:
+Reach the Buildmarkets team through the appropriate channel for your issue:
 
 | Channel | Use for |
 |---|---|

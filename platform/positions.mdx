@@ -1,10 +1,10 @@
 ---
-title: "Positions — Holdings, Cost Basis & P&L | Bluum API"
+title: "Positions — Holdings, Cost Basis & P&L | Buildmarkets API"
 sidebarTitle: "Positions"
-description: "Query investor positions in Bluum. Understand cost basis, unrealized P&L, price confidence levels, and how positions update automatically as orders fill."
+description: "Query investor positions in Buildmarkets. Understand cost basis, unrealized P&L, price confidence levels, and how positions update automatically as orders fill."
 ---
 
-A position represents an investor's holding in a specific asset — the quantity held, average cost basis, current market value, and unrealized profit or loss. Bluum creates positions automatically when orders fill and updates them in real time as market prices change.
+A position represents an investor's holding in a specific asset — the quantity held, average cost basis, current market value, and unrealized profit or loss. Buildmarkets creates positions automatically when orders fill and updates them in real time as market prices change.
 
 ## Position object
 
@@ -128,7 +128,7 @@ curl -X GET "$BASE_URL/investors/$INVESTOR_ID/positions/$POSITION_ID" \
 </CodeGroup>
 
 <Note>
-Bluum returns one position object per asset per investor. If an investor holds both whole and fractional shares of the same symbol, they are combined into a single position.
+Buildmarkets returns one position object per asset per investor. If an investor holds both whole and fractional shares of the same symbol, they are combined into a single position.
 </Note>
 
 ## How positions update

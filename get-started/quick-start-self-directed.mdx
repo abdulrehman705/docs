@@ -1,5 +1,5 @@
 ---
-title: "Quick Start: Self-Directed Investing with Bluum Finance"
+title: "Quick Start: Self-Directed Investing with Buildmarkets"
 sidebarTitle: "Self-Directed"
 description: "Walk through the complete self-directed investing flow: account creation, KYC, bank linking, funding, trading, and withdrawal — in under 30 minutes."
 ---
@@ -154,7 +154,7 @@ AUTH=$(echo -n "$API_KEY:$API_SECRET" | base64)
 
     **3b — Exchange the public token**
 
-    After the user completes Plaid Link, your frontend receives a `public_token`. Send it to Bluum to finalize the connection:
+    After the user completes Plaid Link, your frontend receives a `public_token`. Send it to Buildmarkets to finalize the connection:
 
     ```bash
     curl -X POST "$BASE_URL/investors/$INVESTOR_ID/funding-sources/connect" \
@@ -201,7 +201,7 @@ AUTH=$(echo -n "$API_KEY:$API_SECRET" | base64)
   </Step>
 
   <Step title="Place a buy order">
-    Once the deposit is `completed` and the wallet is funded, the user can trade. Bluum supports buying by quantity (whole shares) or by dollar amount (fractional shares).
+    Once the deposit is `completed` and the wallet is funded, the user can trade. Buildmarkets supports buying by quantity (whole shares) or by dollar amount (fractional shares).
 
     <Tabs>
       <Tab title="Market buy — by quantity">

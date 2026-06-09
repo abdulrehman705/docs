@@ -35,11 +35,11 @@ After creating an account, your user must verify their identity by uploading a g
   </Step>
 
   <Step title="Track verification status">
-    Bluum reviews the document asynchronously. Use polling or webhooks to detect when review is complete.
+    Buildmarkets reviews the document asynchronously. Use polling or webhooks to detect when review is complete.
 
     <Tabs>
       <Tab title="Webhooks (recommended)">
-        Subscribe to `document.approved` and `document.rejected` events. Bluum calls your endpoint as soon as the review finishes — no polling loop needed.
+        Subscribe to `document.approved` and `document.rejected` events. Buildmarkets calls your endpoint as soon as the review finishes — no polling loop needed.
 
         ```bash
         curl -X POST "$BASE_URL/webhooks" \
@@ -114,7 +114,7 @@ curl -X GET "$BASE_URL/documents?status=approved" \
 ## Sandbox behavior
 
 <Note>
-  In the sandbox environment, all document uploads are auto-approved within seconds. To test rejection flows, use the specific test values documented in your Bluum dashboard.
+  In the sandbox environment, all document uploads are auto-approved within seconds. To test rejection flows, use the specific test values documented in your Buildmarkets dashboard.
 </Note>
 
 ## Next steps

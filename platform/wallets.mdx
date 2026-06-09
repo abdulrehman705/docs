@@ -1,23 +1,23 @@
 ---
 title: "Wallets: Cash Balances, Holds & Transaction Ledger"
 sidebarTitle: "Wallets"
-description: "Understand how Bluum wallets hold cash for investment accounts. Covers wallet types, money flow, holds, balance fields, transaction types, and the ledger."
+description: "Understand how Buildmarkets wallets hold cash for investment accounts. Covers wallet types, money flow, holds, balance fields, transaction types, and the ledger."
 ---
 
 A **Wallet** holds the cash balance for an investment account. Deposits flow into the wallet, buy orders debit from it, sell proceeds return to it, and withdrawals send funds back to the user's bank. Every account gets USD, NGN, and KES wallets automatically when it is created — you don't need to create them manually.
 
 ## Wallet Types
 
-Bluum supports three wallet types depending on your integration model:
+Buildmarkets supports three wallet types depending on your integration model:
 
 | Type | Balance source | Best for |
 |---|---|---|
-| **Hosted** | Bluum manages the balance directly | Most integrations — Bluum tracks all cash movements |
+| **Hosted** | Buildmarkets manages the balance directly | Most integrations — Buildmarkets tracks all cash movements |
 | **BYO (Bring Your Own)** | Your system provides the balance via an endpoint you expose | Partners who maintain their own ledger |
 | **Omnibus** | Computed from an immutable double-entry ledger | Partners who need a full, auditable transaction trail |
 
 <Note>
-  Most integrations use the **Hosted** wallet type. BYO and Omnibus are available for partners with specific operational or regulatory requirements — contact Bluum to enable these modes.
+  Most integrations use the **Hosted** wallet type. BYO and Omnibus are available for partners with specific operational or regulatory requirements — contact Buildmarkets to enable these modes.
 </Note>
 
 ## How Money Flows
@@ -38,7 +38,7 @@ Bank Account ──deposit──► Wallet ──buy order──► Positions
     Money enters the wallet from the user's linked bank account. The wallet balance increases once the transfer is received.
   </Step>
   <Step title="Buy order">
-    When the user places a buy order, Bluum places a **hold** on the wallet to reserve the required funds. The available balance decreases; the held amount shows in `reserved_balance`.
+    When the user places a buy order, Buildmarkets places a **hold** on the wallet to reserve the required funds. The available balance decreases; the held amount shows in `reserved_balance`.
   </Step>
   <Step title="Sell order">
     When a sell order fills, the proceeds are credited back to the wallet. The available balance increases.
@@ -50,7 +50,7 @@ Bank Account ──deposit──► Wallet ──buy order──► Positions
 
 ## Wallet Holds
 
-When a user places a buy order, Bluum creates a **hold** on the wallet to reserve funds for the trade. This prevents the same funds from being used for two operations simultaneously.
+When a user places a buy order, Buildmarkets creates a **hold** on the wallet to reserve funds for the trade. This prevents the same funds from being used for two operations simultaneously.
 
 | Hold status | Meaning |
 |---|---|

@@ -1,10 +1,10 @@
 ---
-title: "Registering and Managing Webhooks in Bluum Finance"
+title: "Registering and Managing Webhooks in Buildmarkets"
 sidebarTitle: "Webhook Setup"
-description: "Register, test, and manage Bluum webhook endpoints to receive real-time event notifications for orders, transfers, and account activity."
+description: "Register, test, and manage Buildmarkets webhook endpoints to receive real-time event notifications for orders, transfers, and account activity."
 ---
 
-Webhooks let your application react instantly to events on the Bluum platform — order fills, deposit completions, KYC approvals, and more — without polling the API. This guide walks you through building a receiver endpoint, testing it locally, registering it with Bluum, and hardening it for production.
+Webhooks let your application react instantly to events on the Buildmarkets platform — order fills, deposit completions, KYC approvals, and more — without polling the API. This guide walks you through building a receiver endpoint, testing it locally, registering it with Buildmarkets, and hardening it for production.
 
 <Steps>
 
@@ -46,14 +46,14 @@ def handle_webhook():
 </CodeGroup>
 
 <Note>
-  Bluum will mark your webhook as failed if it does not receive a `2xx` response within 30 seconds. Always return immediately and push work to a background queue.
+  Buildmarkets will mark your webhook as failed if it does not receive a `2xx` response within 30 seconds. Always return immediately and push work to a background queue.
 </Note>
 
 </Step>
 
 <Step title="Test locally">
 
-Expose your local server to the internet using [ngrok](https://ngrok.com) so Bluum can reach it during development:
+Expose your local server to the internet using [ngrok](https://ngrok.com) so Buildmarkets can reach it during development:
 
 ```bash
 ngrok http 3000
@@ -64,7 +64,7 @@ Copy the `https://` forwarding URL — you'll use it when registering your endpo
 
 </Step>
 
-<Step title="Register with Bluum">
+<Step title="Register with Buildmarkets">
 
 Call the `POST /webhooks` endpoint with your ngrok URL and the event type patterns you want to receive. Wildcard patterns like `order.*` subscribe you to all order events.
 
@@ -79,7 +79,7 @@ curl -X POST "$BASE_URL/webhooks" \
   }'
 ```
 
-Bluum returns a webhook object including a `webhook_id` — save it for future updates and deletions.
+Buildmarkets returns a webhook object including a `webhook_id` — save it for future updates and deletions.
 
 </Step>
 
@@ -111,7 +111,7 @@ Check your endpoint logs to confirm events are arriving with the expected shape.
 
 ### Idempotent processing
 
-Bluum may deliver the same event more than once — for example after a network timeout. Use the event's `id` field to deduplicate so that retries don't cause double-processing:
+Buildmarkets may deliver the same event more than once — for example after a network timeout. Use the event's `id` field to deduplicate so that retries don't cause double-processing:
 
 ```javascript
 const processedEvents = new Set(); // Use a database in production

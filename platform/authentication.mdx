@@ -1,10 +1,10 @@
 ---
-title: "Authenticating Bluum API Requests with HTTP Basic Auth"
+title: "Authenticating Buildmarkets API Requests with HTTP Basic Auth"
 sidebarTitle: "Authentication"
-description: "Authenticate every Bluum API request using HTTP Basic Auth. Learn how to encode credentials, set required headers, and follow security best practices."
+description: "Authenticate every Buildmarkets API request using HTTP Basic Auth. Learn how to encode credentials, set required headers, and follow security best practices."
 ---
 
-Every request to the Bluum API must include your credentials in the `Authorization` header using HTTP Basic Authentication. Your **API Key** acts as the username and your **API Secret** acts as the password — you receive a separate key pair for sandbox and production.
+Every request to the Buildmarkets API must include your credentials in the `Authorization` header using HTTP Basic Authentication. Your **API Key** acts as the username and your **API Secret** acts as the password — you receive a separate key pair for sandbox and production.
 
 ## How It Works
 
@@ -110,7 +110,7 @@ You receive separate credentials for the sandbox and production environments. Ne
 | **Production** | `https://service.bluumfinance.com/v1` | Issued after compliance approval |
 
 <Warning>
-  Your API Secret is displayed **only once** at the time of creation. Copy it immediately and store it in a secret manager. If you lose it, you must generate a new key pair — Bluum cannot recover a lost secret.
+  Your API Secret is displayed **only once** at the time of creation. Copy it immediately and store it in a secret manager. If you lose it, you must generate a new key pair — Buildmarkets cannot recover a lost secret.
 </Warning>
 
 ## Security Best Practices
@@ -132,7 +132,7 @@ If a request returns an HTTP `401`, check the error code in the response body:
 | `BLUM-401-001` | Missing `Authorization` header | Include `Authorization: Basic <credentials>` on every request |
 | `BLUM-401-002` | Malformed credentials | Verify that you Base64-encoded the full `API_KEY:API_SECRET` string |
 | `BLUM-401-003` | Invalid API key or secret | Confirm credentials are correct, active, and match the target environment |
-| `BLUM-401-004` | API key inactive | Contact Bluum support to reactivate your key |
+| `BLUM-401-004` | API key inactive | Contact Buildmarkets support to reactivate your key |
 
 <Tip>
   If you receive `BLUM-401-002`, the most common cause is encoding only the key or only the secret — make sure you encode the **combined** `API_KEY:API_SECRET` string, including the colon.

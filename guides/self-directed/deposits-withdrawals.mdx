@@ -31,7 +31,7 @@ curl -X POST "$BASE_URL/investors/$INVESTOR_ID/deposits" \
 
 ### Manual bank transfer
 
-Instruct the user to send a wire or bank transfer to a Bluum-provided account. Use this when the user doesn't have a linked Plaid account or prefers to initiate the transfer themselves.
+Instruct the user to send a wire or bank transfer to a Buildmarkets-provided account. Use this when the user doesn't have a linked Plaid account or prefers to initiate the transfer themselves.
 
 ```bash
 curl -X POST "$BASE_URL/investors/$INVESTOR_ID/deposits" \
@@ -46,7 +46,7 @@ curl -X POST "$BASE_URL/investors/$INVESTOR_ID/deposits" \
   }'
 ```
 
-The response includes bank details and a unique reference code. Display all of this to your user — they must include the reference code in their transfer memo so Bluum can match the incoming funds to the correct deposit.
+The response includes bank details and a unique reference code. Display all of this to your user — they must include the reference code in their transfer memo so Buildmarkets can match the incoming funds to the correct deposit.
 
 ```json
 {
@@ -54,7 +54,7 @@ The response includes bank details and a unique reference code. Display all of t
     "referenceCode": "BLUUM-ABC123XY",
     "bankDetails": {
       "bankName": "Choice Financial Group",
-      "accountName": "Bluum Finance, Inc.",
+      "accountName": "Buildmarkets, Inc.",
       "routingNumber": "091311229",
       "accountNumber": "202534766488",
       "instructions": "Include reference code \"BLUUM-ABC123XY\" in your transfer memo."
@@ -86,7 +86,7 @@ curl -X GET "$BASE_URL/investors/$INVESTOR_ID/deposits/$DEPOSIT_ID" \
 | `failed` | Transfer failed | Check `failure_reason` in the response, then retry |
 
 <Tip>
-  Subscribe to `transfer.deposit.*` webhook events instead of polling. Bluum sends a real-time notification on every status transition, which is more efficient and reduces API load.
+  Subscribe to `transfer.deposit.*` webhook events instead of polling. Buildmarkets sends a real-time notification on every status transition, which is more efficient and reduces API load.
 </Tip>
 
 ## Withdrawals
@@ -131,7 +131,7 @@ curl -X POST "$BASE_URL/investors/$INVESTOR_ID/withdrawals/$WITHDRAWAL_ID/cancel
 
 ## Idempotency
 
-Always include a unique `Idempotency-Key` header on every deposit and withdrawal request. If a request fails due to a network timeout or other transient error, you can safely retry it with the same key — Bluum will return the original response without creating a duplicate transfer.
+Always include a unique `Idempotency-Key` header on every deposit and withdrawal request. If a request fails due to a network timeout or other transient error, you can safely retry it with the same key — Buildmarkets will return the original response without creating a duplicate transfer.
 
 ```bash
 -H "Idempotency-Key: dep-unique-operation-id"

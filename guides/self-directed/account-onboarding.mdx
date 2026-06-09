@@ -4,7 +4,7 @@ sidebarTitle: "Account Onboarding"
 description: "Create and activate a self-directed investment account by collecting user data across four groups, submitting the account, and handling validation errors."
 ---
 
-Opening an investment account requires your user to provide four groups of information — contact details, identity, regulatory disclosures, and signed agreements. This guide shows you how to collect that data across multiple screens and submit it to the Bluum API in a single request.
+Opening an investment account requires your user to provide four groups of information — contact details, identity, regulatory disclosures, and signed agreements. This guide shows you how to collect that data across multiple screens and submit it to the Buildmarkets API in a single request.
 
 <Note>
   The examples below reference shell variables `$BASE_URL` and `$AUTH`. Set them once before running any request: `BASE_URL="https://test-service.bluumfinance.com/v1"` and `AUTH=$(echo -n "$API_KEY:$API_SECRET" | base64)`. See the [Quick Start](/get-started/quick-start-self-directed) for the full setup.
@@ -53,7 +53,7 @@ Store each screen's data in your application state and submit the full account p
     Gather contact, identity, disclosures, and agreement data as the user moves through your onboarding flow. Don't submit until all fields are present.
   </Step>
   <Step title="Submit the account creation request">
-    Send a single `POST /accounts` request with the complete payload. Bluum validates all fields synchronously and returns an account object on success.
+    Send a single `POST /accounts` request with the complete payload. Buildmarkets validates all fields synchronously and returns an account object on success.
 
     ```bash
     curl -X POST "$BASE_URL/accounts" \
@@ -116,7 +116,7 @@ Store each screen's data in your application state and submit the full account p
 
 ## Handling validation errors
 
-When the request fails, Bluum returns a structured error response. The most common errors are:
+When the request fails, Buildmarkets returns a structured error response. The most common errors are:
 
 | Error code | Description | How to fix |
 |-----------|-------------|-----------|
