@@ -1,132 +1,69 @@
 ---
-title: "Positions & Portfolio: Query Holdings and Track P&L"
+title: "Tracking Positions"
 sidebarTitle: "Positions & Portfolio"
-description: "Retrieve investment positions, interpret P&L fields like unrealized gain and market value, and build portfolio UI patterns with real-time updates."
+description: "Retrieve account balances and open positions once an account is ACTIVE, plus a unified view of account activities for transaction history and reconciliation."
 ---
 
-After an order fills, a position appears in the investor's account. This guide explains how to fetch positions, interpret every P&L field, build a portfolio view in your UI, and keep that view up to date as market prices change.
+## Overview
 
-## Listing positions
+Describes how to retrieve account financial data once an account reaches `ACTIVE` status. These endpoints support portfolio dashboards, buying-power validation, and position management interfaces.
 
-Fetch all current holdings for an investor with a single request:
+## Key Endpoints
 
-```bash
-curl -X GET "$BASE_URL/investors/$INVESTOR_ID/positions" \
-  -H "Authorization: Basic $AUTH"
-```
+**Get Account Balances** — `GET /v1/accounts/{accountId}/balances` — Returns current cash and equity information.
 
-The response is an array of position objects — one per asset the investor currently holds:
+**List All Open Positions** — `GET /v1/accounts/{accountId}/positions` — Returns securities with non-zero quantities.
 
-```json
-[
-  {
-    "id": "pos_a1b2c3d4-e5f6-7890-abcd-ef1234567890",
-    "investor_id": "inv_01j9x8m2k7qpzwv3t5r6y8n0ab",
-    "symbol": "AAPL",
-    "asset_id": "asset_9f8e7d6c-5b4a-3210-fedc-ba0987654321",
-    "currency": "USD",
-    "quantity": "10",
-    "average_cost_basis": "178.50",
-    "total_cost_basis": "1785.00",
-    "current_price": "182.30",
-    "market_value": "1823.00",
-    "unrealized_pl": "38.00",
-    "unrealized_pl_percent": "0.0213",
-    "price_source": "ALPACA",
-    "price_confidence": "REAL_TIME",
-    "price_timestamp": "2025-06-15T14:30:00Z",
-    "last_transaction_at": "2025-06-15T14:00:00Z",
-    "created_at": "2025-06-15T14:00:00Z",
-    "updated_at": "2025-06-15T14:30:00Z"
-  },
-  {
-    "id": "pos_b2c3d4e5-f6a7-8901-bcde-f12345678901",
-    "investor_id": "inv_01j9x8m2k7qpzwv3t5r6y8n0ab",
-    "symbol": "GOOGL",
-    "asset_id": "asset_8e7d6c5b-4a32-10fe-dcba-098765432100",
-    "currency": "USD",
-    "quantity": "5.42",
-    "average_cost_basis": "184.50",
-    "total_cost_basis": "999.99",
-    "current_price": "186.10",
-    "market_value": "1008.66",
-    "unrealized_pl": "8.67",
-    "unrealized_pl_percent": "0.0087",
-    "price_source": "ALPACA",
-    "price_confidence": "REAL_TIME",
-    "price_timestamp": "2025-06-15T14:30:00Z",
-    "last_transaction_at": "2025-06-15T13:45:00Z",
-    "created_at": "2025-06-15T13:45:00Z",
-    "updated_at": "2025-06-15T14:30:00Z"
-  }
-]
-```
+**Get Single Position** — `GET /v1/accounts/{accountId}/positions/{symbol}` — Returns 404 if no position exists for that symbol.
 
-## Position detail
+## Balance Field Definitions
 
-Fetch a single position by its ID:
+The response includes: total cash, settled/unsettled cash components, buying power, equity value, long market value, previous close equity, portfolio value, and timestamp.
 
-```bash
-curl -X GET "$BASE_URL/investors/$INVESTOR_ID/positions/$POSITION_ID" \
-  -H "Authorization: Basic $AUTH"
-```
+## Position Field Definitions
 
-## Understanding P&L fields
+Position data encompasses: ticker symbol, asset class, share quantity, average entry price, side (long), market value, cost basis, unrealized gain/loss in dollars and percentage, current price, prior day close, and intraday change metrics.
 
-Each position includes four fields that together tell the full profit-and-loss story:
+## Settlement Timing
 
-| Field | Formula | What it tells you |
-|-------|---------|-------------------|
-| `total_cost_basis` | `quantity × average_cost_basis` | What the investor originally paid for these shares |
-| `market_value` | `quantity × current_price` | What those shares are worth right now |
-| `unrealized_pl` | `market_value − total_cost_basis` | Dollar gain or loss on paper |
-| `unrealized_pl_percent` | `unrealized_pl ÷ total_cost_basis` | Percentage gain or loss on paper |
+ACH deposits require 1–3 business days to settle in production (instant in sandbox). Equity sale proceeds settle T+1. Unsettled funds appear separately and don't count toward buying power.
 
-<Note>
-  **Unrealized** means the gain or loss exists on paper — the investor hasn't sold yet. Once they sell, the P&L becomes **realized**. Only unrealized P&L is available from the positions endpoint.
-</Note>
+## Practical Recommendations
 
-## Displaying positions in your UI
+Combine balances and positions endpoints with market data services to build dashboards, and compare estimated order costs against available buying power before presenting confirmation screens.
 
-Use these patterns to present portfolio data clearly:
+---
 
-### Portfolio summary
+## Account Activities
 
-Aggregate across all positions to show the investor's overall portfolio health:
+### Introduction
 
-- **Total market value** — Sum of all `market_value` fields
-- **Total unrealized P&L** — Sum of all `unrealized_pl` fields
-- **Overall percentage return** — `total_unrealized_pl ÷ total_cost_basis`
+"Account activities give you a unified view of everything that has happened in an account: trades executed, dividends credited, deposits settled, fees charged, and corporate actions applied."
 
-### Per-position row
+### What Counts as an Activity?
 
-Show each position as a row in a holdings table or list:
+The platform surfaces activities from two primary sources: trade executions via the orders endpoint, and deposits, withdrawals, dividends, interest, and corporate actions via the funding endpoint.
 
-- Symbol and company name
-- Quantity held (supports fractional shares like `5.42`)
-- Current price (`current_price`)
-- Total market value (`market_value`)
-- Unrealized P&L — display in green for positive values, red for negative
-- Percentage change (`unrealized_pl_percent`)
+### Retrieving Order-Level Activity
 
-### Real-time updates
+List orders and examine execution details for individual trades. Each order record includes identifiers, symbol, asset class, order type, side, quantity, fill price, status, and timestamps. The executions endpoint provides lot-level fill data — each execution shows "a distinct fill at a specific price and time," with the volume-weighted average equaling the parent order's filled average price.
 
-Positions update as market prices change throughout the trading day. Choose the strategy that fits your product's needs:
+### Retrieving Funding Activity
 
-- **Polling** — Query `GET /positions` every 30 seconds during market hours. Simple to implement and works well for lower-frequency updates.
-- **Webhooks** — Subscribe to `order.filled` events to detect when new positions are created or existing ones change size. Combine with a price feed for live `current_price` and `market_value` updates.
+The funding activity endpoint surfaces cash events including deposits, withdrawals, dividends, and fees. Records contain an activity identifier, account identifier, activity type, amount, status, description, and timestamps.
 
-## When positions update
+### Activity Types Reference
 
-| Event | Effect on positions |
-|-------|-------------------|
-| Buy order fills | A new position is created, or an existing position's `quantity` and `average_cost_basis` increase |
-| Sell order fills | Position `quantity` decreases; the position is removed entirely if fully sold |
-| Market price change | `current_price`, `market_value`, `unrealized_pl`, and `unrealized_pl_percent` are recalculated |
-| Stock split | `quantity` and `average_cost_basis` are adjusted proportionally — `total_cost_basis` and `market_value` remain accurate |
+The system tracks various activity types: DEPOSIT, WITHDRAWAL, DIV, DIVTAX, JNLC, PTC, REORG, SSO, ACATC, and ACATS.
 
-## Empty positions
+### Activity Statuses
 
-<Note>
-  When an investor sells their entire holding in an asset, the position is removed from the list entirely. A `GET /positions` response only includes assets the investor currently holds — a 200 response with an empty array `[]` means the investor has no open positions.
-</Note>
+Activities can be PENDING, SETTLED, FAILED, or CANCELLED.
+
+### Building a Transaction History UI
+
+Combine orders and funding activity into a unified transaction timeline sorted chronologically.
+
+### Reconciliation
+
+For daily reconciliation, retrieve settled funding activity, filled orders, and current balances, then verify that "previous_equity + net_trades + net_cash_activity ≈ current_equity."

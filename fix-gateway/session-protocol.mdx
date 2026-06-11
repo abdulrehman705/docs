@@ -1,0 +1,75 @@
+---
+title: "Session Protocol"
+sidebarTitle: "Session Protocol"
+description: "How the FIX Session Protocol handles logon, logout, heartbeats, sequencing, resend, and reject for reliable message transport."
+---
+
+## Overview
+
+The FIX Session Protocol enables reliable, ordered transport of FIX Application messages. The gateway supports these session-level messages: Sequence Reset, Logon, Logout, Heartbeat, Test Request, Resend Request, Reject.
+
+## Logon
+
+The Logon message must be sent first after establishing a TCP connection. The gateway responds with its own Logon message to confirm the session.
+
+**Logon Fields (MsgType = "A")**
+
+| Tag | Field | Description | Required | Type | Values |
+|-----|-------|-------------|----------|------|--------|
+| 98 | EncryptMethod | Method of encryption | Y | Int | `0` (None) |
+| 108 | HeartBtInt | Heartbeat interval in seconds | Y | Int | `30` recommended |
+
+**Example:**
+```
+8=FIX.4.4|9=72|35=A|34=1|49=CLIENT1|52=20260212-14:00:00.000|56=TAPPENGINE|98=0|108=60|10=123|
+```
+
+## Logout
+
+Clients must log out at the end of each trading session. Verify no live orders exist and all expected Execution Reports have been received before logout. The party initiating logout breaks the TCP connection, allowing both sides to issue Resend Requests if sequence gaps are detected.
+
+**Logout (MsgType = "5")**
+```
+8=FIX.4.4|9=56|35=5|34=150|49=CLIENT1|52=20260212-20:00:00.000|56=TAPPENGINE|10=045|
+```
+
+## Sequencing and Reconnecting
+
+The Client FIX Gateway may reset inbound and outbound sequence numbers to 1 per a configurable schedule. When reconnecting after disconnect: both sides compare expected vs. received sequence numbers; if a gap is detected, a Resend Request is issued; messages are replayed with `PossDupFlag=Y` (Tag 43).
+
+## Heartbeat and Test Request
+
+The gateway uses the heartbeat interval from the Logon message to determine client liveness. A value of 0 disables the check. **Heartbeat (MsgType = "0")** is sent automatically when no data transmits for the heartbeat interval, and in response to a Test Request. **Test Request (MsgType = "1")** is sent after `HeartBtInt + 2 seconds` of inactivity from the peer; if no Heartbeat response arrives within `2 × HeartBtInt + 4 seconds` of inactivity, the gateway sends Logout and drops the connection.
+
+## Resend Request
+
+Send a Resend Request to recover missed messages when a sequence gap is detected. > **Important:** If you receive a Resend Request with a sequence gap, resend appropriate messages *first* before sending your own Resend Request to avoid infinite loops. Two gap recovery methods exist. For receiving messages 1–10, then 15: **Method 1:** Request resend of 11–14 (specific gap range), then process 15. **Method 2:** Discard message 15, request resend of 11–999999 (open-ended).
+
+## Reject
+
+> **Recommendation:** "Avoid using the FIX Reject message. Per the FIX specification, any message you reject will **not** be resent." Instead, contact TAPP Engine support for unexpected message formats.
+
+## Sequence Reset
+
+Sequence Reset – Gap Fill must occur in sequence. When resending messages 10–15, if messages 11–14 are administrative messages (other than Reject), replace them with a single Sequence Reset – Gap Fill with `NewSeqNo=15`.
+
+## Message Header
+
+| Tag | Field | Description | Required | Type | Values |
+|-----|-------|-------------|----------|------|--------|
+| 8 | BeginString | FIX version | Y | String(7) | `FIX4.4` |
+| 9 | BodyLength | Message body length in bytes | Y | Int | |
+| 35 | MsgType | Message type identifier | Y | String(3) | See message reference |
+| 34 | MsgSeqNum | Message sequence number | Y | Int | |
+| 43 | PossDupFlag | Possible retransmission flag | N | Boolean | `Y` = Possible duplicate |
+| 49 | SenderCompID | Your identifier | Y | String(7) | |
+| 52 | SendingTime | Timestamp of message send | Y | UTCTimestamp | |
+| 56 | TargetCompID | Gateway identifier | Y | String(7) | |
+| 97 | PossResend | Possible resend indicator | N | Boolean | |
+| 122 | OrigSendingTime | Original timestamp for resends | C | UTCTimestamp | Required for resends. Must NOT be present on new messages. |
+
+## Message Trailer
+
+| Tag | Field | Description | Required |
+|-----|-------|-------------|----------|
+| 10 | CheckSum | Three-digit checksum | Y |

@@ -1,197 +1,66 @@
 ---
-title: "Go Live: Deploy Your Buildmarkets Integration to Production"
+title: "Going Live"
 sidebarTitle: "Go Live"
-description: "Complete the production readiness checklist, request production credentials, deploy to the live Buildmarkets environment, and configure observability."
+description: "TAPP Engine production readiness: sandbox vs production environments, real KYC, order routing, ACH funding, and regulatory and compliance obligations."
 ---
 
-Moving from sandbox to production involves three things: confirming your integration is solid, requesting production credentials from the Buildmarkets team, and deploying with proper observability in place. This page walks you through each step.
+TAPP Engine is a white-label wealth management and brokerage infrastructure platform built for financial institutions. It provides the API layer that lets financial institutions offer investment accounts, equity and ETF trading, managed portfolios, and funding services directly within their own member- or customer-facing experiences — powered by a FINRA-registered broker-dealer and SEC-registered RIA.
 
-## Production readiness checklist
+## TAPP Engine API Overview
 
-Complete every item below before requesting production access. The Buildmarkets team will review your sandbox integration as part of the approval process.
+TAPP Engine APIs sit between your application and the underlying brokerage and clearing infrastructure. You interact with a single, unified REST API; TAPP Engine handles everything underneath:
 
-<Steps>
-  <Step title="Integration tested in sandbox">
-    Your integration handles the full lifecycle you plan to support in production:
+* **Account opening & KYC** — Identity verification, regulatory disclosures, and agreement capture
+* **Order routing** — Routing equity and ETF orders to market
+* **ACH funding** — Linking bank accounts and moving money in and out
+* **Market data** — Real-time quotes, historical bars, fundamentals, and reference data
+* **Document management** — Statements, tax forms, and compliance documents
+* **Webhooks** — Real-time event delivery for orders, accounts, and funding status changes
 
-    - [ ] Account creation and KYC verification
-    - [ ] Bank account linking and funding
-    - [ ] Order placement, status tracking, and fills
-    - [ ] Withdrawal processing
-    - [ ] Error handling for all failure scenarios
-    - [ ] Webhook event processing (if using webhooks)
-  </Step>
+## Platform Architecture
 
-  <Step title="Idempotency keys implemented">
-    All deposit and withdrawal requests include an `Idempotency-Key` header to prevent duplicate transfers on retry.
+Your Application (Member Portal, Mobile App, or Back-Office Integration) connects via REST API (HTTPS) using X-API-Key / X-API-Secret to the TAPP Engine API. The TAPP Engine API exposes modules for Accounts, Order Management, Portfolios, Market Data, Funding, Documents, Advisory, and Webhooks. Underneath, it connects to Clearing & Custody (RQD Clearing) and Market Data Providers.
 
-    ```bash
-    curl -X POST "$BASE_URL/investors/$INVESTOR_ID/deposits" \
-      -H "Authorization: Basic $AUTH" \
-      -H "Content-Type: application/json" \
-      -H "Idempotency-Key: dep-$(uuidgen)" \
-      -d '{ ... }'
-    ```
+## Who is TAPP Engine for?
 
-    <Warning>
-      Missing idempotency keys on financial operations is a production blocker. Every deposit and withdrawal request must include a unique `Idempotency-Key` header.
-    </Warning>
-  </Step>
+TAPP Engine is designed for **partners** — financial institutions that want to embed investing features into their product:
 
-  <Step title="Error handling is robust">
-    Your integration handles every failure class:
-
-    | Status | Scenario | Recommended handling |
-    |---|---|---|
-    | `401` | Authentication failure | Check credentials; alert on repeated failures |
-    | `429` | Rate limit exceeded | Exponential backoff with jitter |
-    | `400` | Validation error | Surface to user or log for debugging |
-    | `500` | Server error | Retry with backoff; alert on repeated failures |
-    | Timeout | Network timeout | Retry with the original idempotency key |
-
-    See [Error Handling](/platform/errors) for the complete error model.
-  </Step>
-
-  <Step title="Webhook endpoints secured">
-    If you use webhooks, confirm all of the following:
-
-    - [ ] Endpoint is HTTPS only
-    - [ ] Webhook signatures are verified before processing
-    - [ ] Your handler responds with `2xx` within 30 seconds
-    - [ ] Duplicate deliveries are handled idempotently
-    - [ ] You have alerting on delivery failures
-
-    See [Webhooks](/platform/webhooks) for implementation details.
-  </Step>
-
-  <Step title="Credentials stored securely">
-    - [ ] API keys and secrets are stored in a secret manager (not in code or config files)
-    - [ ] Credentials are scoped to service accounts, not individual developers
-    - [ ] You have a key rotation process ready and documented
-  </Step>
-
-  <Step title="Compliance requirements met">
-    Contact your Buildmarkets account manager to confirm:
-
-    - [ ] Your KYC document collection meets regulatory requirements
-    - [ ] Required disclosures and agreements are presented to end users
-    - [ ] Your record-keeping meets applicable regulations
-  </Step>
-</Steps>
-
----
-
-## Requesting production access
-
-Once you've completed the checklist, email `support@bluum.finance` with the following:
-
-1. Your company name and dashboard account email
-2. A description of your product and integration model (Self-Directed or Wealth Management)
-3. Confirmation that you've completed the readiness checklist above
-
-Buildmarkets reviews your sandbox integration and compliance setup, then issues production API credentials upon approval.
-
----
-
-## Deploying to production
-
-<Steps>
-  <Step title="Update your environment configuration">
-    Switch your base URL and credentials to production values:
-
-    ```bash
-    export BLUUM_BASE_URL="https://service.bluumfinance.com/v1"
-    export BLUUM_API_KEY="your_production_key"
-    export BLUUM_API_SECRET="your_production_secret"
-    ```
-  </Step>
-
-  <Step title="Run a smoke test">
-    Verify connectivity with a read-only request before processing any real user operations:
-
-    ```bash
-    curl -X GET "$BLUUM_BASE_URL/assets?asset_class=us_equity&tradable=true" \
-      -H "Authorization: Basic $(echo -n "$BLUUM_API_KEY:$BLUUM_API_SECRET" | base64)"
-    ```
-
-    Confirm you receive a `200` response. If you see a `401`, verify that both the key and secret have been updated and are correctly encoded.
-  </Step>
-
-  <Step title="Monitor initial operations">
-    Watch the first few production operations closely before scaling:
-
-    - [ ] First account creation and KYC flow
-    - [ ] First deposit and order
-    - [ ] Webhook delivery to your production endpoint
-
-    Log the `X-Request-Id` header from every response. Include it in any support tickets to help the Buildmarkets team trace requests quickly.
-  </Step>
-</Steps>
-
----
-
-## Credential rotation
-
-Rotate API keys every 90 days. Follow this sequence to avoid downtime:
-
-<Steps>
-  <Step title="Generate a new key pair">
-    In your dashboard, navigate to **Settings > API Keys** and create a new key pair. Copy the secret immediately — it's only shown once.
-  </Step>
-  <Step title="Deploy the new credentials">
-    Update your production environment with the new key and secret. Verify that your application starts successfully and can reach the Buildmarkets API.
-  </Step>
-  <Step title="Confirm connectivity">
-    Run the smoke test against production with the new credentials:
-
-    ```bash
-    curl -X GET "https://service.bluumfinance.com/v1/assets?asset_class=us_equity&tradable=true" \
-      -H "Authorization: Basic $(echo -n "$BLUUM_API_KEY:$BLUUM_API_SECRET" | base64)"
-    ```
-  </Step>
-  <Step title="Revoke the old key">
-    Only after confirming the new credentials work, revoke the old key pair from **Settings > API Keys** in the dashboard.
-  </Step>
-</Steps>
-
-<Warning>
-  Never revoke the old key before verifying the new one. Generate, deploy, verify, then revoke — in that order.
-</Warning>
-
----
-
-## Observability
-
-### Request logging
-
-Log every API request and response. At minimum, capture:
-
-- HTTP method and path
-- Response status code
-- `X-Request-Id` response header
-- Response time (latency)
-
-The `X-Request-Id` is the most important field — include it in every support ticket so the Buildmarkets team can trace the request end-to-end.
-
-### Monitoring
-
-Set up alerts for the following conditions:
-
-| Condition | Why it matters |
+| Partner type | Example use case |
 |---|---|
-| Elevated 5xx error rate | Indicates a Buildmarkets-side or integration issue requiring attention |
-| Repeated 429 responses | Your application is hitting rate limits; apply backoff or reduce concurrency |
-| Orders stuck in `accepted` status | May indicate an exchange routing issue; escalate to support |
-| Webhook delivery failures | Events are being missed; your event-driven flows may be stalled |
+| **Fintech apps** | Add a brokerage account tab to a personal finance app |
+| **Wealth platforms** | Power advisor-managed accounts with API-driven rebalancing |
+| **Challenger banks** | Offer stock trading alongside deposit accounts |
+| **Robo-advisors** | Automate goal-based portfolio construction and management |
+| **HR / benefits platforms** | Provide employee investment accounts as a workplace benefit |
 
----
+## Product Areas
 
-## Support
+### TAPP Wealth
 
-Reach the Buildmarkets team through the appropriate channel for your issue:
+The core brokerage suite. Includes account management, equity and ETF trading, ACH funding, market data, and documents.
 
-| Channel | Use for |
-|---|---|
-| `support@bluum.finance` | Credentials, access requests, compliance questions, general inquiries |
-| `ope@bluumfinance.com` | Integration help and technical questions |
-| Emergency trading desk: `+1 (415) 555-0112` | Urgent production issues during market hours (24/5) |
+### TAPP FIX Gateway
+
+For partners with their own OMS or algorithmic trading infrastructure, TAPP Engine offers a FIX 4.2-compliant gateway for high-throughput order submission.
+
+## Environments
+
+| Attribute | Sandbox | Production |
+|---|---|---|
+| **Purpose** | Integration development and QA | Live trading with real funds |
+| **Base URL** | `https://dev-tapp-api.tappengine.com` | `https://api.tappengine.com` |
+| **KYC** | Simulated via SSN suffix | Real KYC processing |
+| **Orders** | Simulated fills | Real order routing |
+| **Funding** | No real money moved | Real ACH transfers |
+
+## Regulatory & Compliance
+
+TAPP Engine's underlying brokerage infrastructure is operated through a registered broker-dealer and FINRA member. As a partner, you agree to TAPP Engine's partner program terms, which govern your use of the platform and your obligations with respect to customer accounts opened through your application.
+
+Refer to your partner agreement for specifics on your compliance obligations, including customer suitability, supervision, and recordkeeping requirements.
+
+## Next Steps
+
+* Introduction to TAPP Engine — Understand the key concepts and data model
+* Use Cases — See common integration patterns
+* Getting Started — Make your first API call

@@ -1,202 +1,272 @@
 ---
-title: "Webhooks — Real-Time Notifications | Buildmarkets"
+title: "Webhooks"
 sidebarTitle: "Webhooks"
-description: "Receive real-time push notifications for orders, transfers, and KYC decisions. Register endpoints, subscribe to events, handle retries, and test locally."
+description: "Register and manage HTTPS webhook endpoints to receive real-time event notifications from TAPP Engine instead of polling the API."
 ---
 
-Webhooks deliver real-time notifications to your server when events occur in Buildmarkets — orders filling, deposits completing, KYC decisions, and more. Use webhooks instead of polling to build responsive, event-driven integrations.
+Webhooks let your application receive real-time notifications when events occur within TAPP Engine — account approvals, funding transfers, order fills, and more. Rather than polling the API repeatedly to check for status changes, you register an HTTPS endpoint and TAPP pushes event payloads to it as things happen.
+
+This page covers how to register and manage webhook endpoints. For a full reference of every event type and its payload structure, see [Webhook Events Reference](/guides/operations/webhook-setup). For payload verification, retry logic, and delivery guarantees, see [Webhook Security & Delivery](/guides/operations/webhook-setup).
+
+---
 
 ## How webhooks work
 
-When an event occurs in Buildmarkets, the platform immediately sends an HTTP `POST` request containing a structured JSON payload to your registered endpoint. Your server processes the event and acknowledges receipt by returning a `2xx` status code.
-
 ```
-Event occurs in Buildmarkets
-        │
-        ▼
-Buildmarkets sends POST to your endpoint
-        │
-        ▼
-Your server responds 2xx ──── (retry with backoff on failure)
+      Event occurs in TAPP         TAPP sends HTTP POST          Your server
+      (e.g., order filled)   →     to your webhook URL      →    processes event
+                                   with signed payload            and returns 2xx
 ```
 
-<Steps>
-  <Step title="Register your endpoint">
-    Create a webhook subscription by providing a publicly reachable HTTPS URL and the list of event types you want to receive.
-  </Step>
-  <Step title="Buildmarkets sends events">
-    When a subscribed event fires, Buildmarkets sends a `POST` request with a JSON payload to your URL within seconds.
-  </Step>
-  <Step title="Acknowledge receipt">
-    Return any `2xx` HTTP status code within 30 seconds to confirm delivery. Process the event asynchronously if your logic takes longer.
-  </Step>
-  <Step title="Automatic retries">
-    If your endpoint doesn't respond with `2xx` in time, Buildmarkets retries with exponential backoff until delivery succeeds or retries are exhausted.
-  </Step>
-</Steps>
+1.  **Register** an HTTPS endpoint via `POST /v1/webhooks`
+2.  **Receive** a signing secret — used to verify that payloads come from TAPP
+3.  **TAPP delivers** a JSON payload to your URL via HTTP POST whenever a subscribed event fires
+4.  **Your server** validates the signature, processes the event, and returns a `2xx` status
+5.  **TAPP retries** failed deliveries automatically (see [Security & Delivery](/guides/operations/webhook-setup))
 
-## Event types
+> **The secret is shown only once.** Store it securely at registration time — it cannot be retrieved again. If lost, delete the webhook and create a new one.
 
-Events follow the naming convention `{domain}.{action}`. Subscribe to the exact events you need.
+---
 
-| Event | Description |
-|---|---|
-| `account.created` | New account created |
-| `account.updated` | Account details changed |
-| `order.accepted` | Order accepted for execution |
-| `order.filled` | Order fully filled |
-| `order.partially_filled` | Order partially filled |
-| `order.canceled` | Order canceled |
-| `order.rejected` | Order rejected |
-| `transfer.deposit.initiated` | Deposit initiated |
-| `transfer.deposit.completed` | Deposit completed, funds available |
-| `transfer.deposit.failed` | Deposit failed |
-| `transfer.withdrawal.initiated` | Withdrawal initiated |
-| `transfer.withdrawal.completed` | Withdrawal completed |
-| `transfer.withdrawal.failed` | Withdrawal failed |
-| `document.approved` | KYC document approved |
-| `document.rejected` | KYC document rejected |
+## Endpoints
 
-### Wildcard subscriptions
+| Method | Path | Description |
+|--------|------|-------------|
+| `POST` | `/v1/webhooks` | Register a new webhook endpoint |
+| `GET` | `/v1/webhooks` | List all registered webhooks |
+| `GET` | `/v1/webhooks/{webhookId}` | Get details for a specific webhook |
+| `PATCH` | `/v1/webhooks/{webhookId}` | Update URL, events, or status |
+| `DELETE` | `/v1/webhooks/{webhookId}` | Permanently remove a webhook |
+| `POST` | `/v1/webhooks/{webhookId}/test` | Send a test event to verify connectivity |
+| `GET` | `/v1/webhooks/{webhookId}/deliveries` | View delivery attempt history |
 
-Subscribe to all events within a domain by using `*` as the action:
+---
 
-| Pattern | Matches |
-|---|---|
-| `order.*` | All order events (`accepted`, `filled`, `partially_filled`, `canceled`, `rejected`) |
-| `transfer.*` | All transfer events for both deposits and withdrawals |
+## Create a webhook
 
-### List available event types
+Registers a new HTTPS endpoint to receive events. Pass an empty `events` array to subscribe to **all** event types. Pass specific event names to subscribe to a subset.
 
-Fetch the current list of supported event types programmatically:
+### `POST /v1/webhooks`
+
+#### Request body
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `url` | string (URI) | ✅ | HTTPS URL where TAPP will POST event payloads. Must be a valid `https://` URL |
+| `events` | array of strings | ✅ | Event types to subscribe to. Pass an empty array `[]` to receive all events. See [Webhook Events Reference](/guides/operations/webhook-setup) for valid values |
+
+#### Response body (`201 Created`)
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | string (UUID) | Unique identifier for this webhook |
+| `url` | string | The registered HTTPS endpoint |
+| `events` | array of strings | Subscribed event types (empty = all) |
+| `status` | string | Webhook status: `active` or `disabled` |
+| `secret` | string | **Shown only once.** HMAC signing secret — store this securely immediately |
+| `created_at` | string (ISO 8601) | Registration timestamp |
+
+> ⚠️ **Store the `secret` now.** It is returned exactly once in the `201` response and cannot be retrieved again. If lost, the webhook must be deleted and recreated.
+
+#### Example request — subscribe to all events
 
 ```bash
-curl -X GET "$BASE_URL/webhooks/event-types" \
-  -H "Authorization: Basic $AUTH"
-```
-
-## Registering a webhook
-
-Send a `POST` request with your endpoint URL and the event types you want to subscribe to:
-
-```bash
-curl -X POST "$BASE_URL/webhooks" \
-  -H "Authorization: Basic $AUTH" \
+curl -X POST https://api.tappengine.com/v1/webhooks \
+  -H "Authorization: Bearer $TAPP_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{
-    "name": "Production webhook",
-    "url": "https://your-app.com/webhooks/bluum",
-    "eventTypeNames": ["order.*", "transfer.*"]
+    "url": "https://myapp.com/webhooks/tapp",
+    "events": []
   }'
 ```
 
-## Managing webhooks
+#### Example request — subscribe to specific events
 
-Update subscriptions and remove endpoints as your integration evolves.
-
-<CodeGroup>
-```bash List all webhooks
-curl -X GET "$BASE_URL/webhooks" \
-  -H "Authorization: Basic $AUTH"
-```
-
-```bash Update event subscriptions
-curl -X PATCH "$BASE_URL/webhooks/$WEBHOOK_ID" \
-  -H "Authorization: Basic $AUTH" \
+```bash
+curl -X POST https://api.tappengine.com/v1/webhooks \
+  -H "Authorization: Bearer $TAPP_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{
-    "eventTypeNames": ["order.*", "transfer.*", "account.*"]
+    "url": "https://myapp.com/webhooks/tapp",
+    "events": [
+      "account.kyc_approved",
+      "account.closed",
+      "funding.deposit_completed",
+      "order.filled",
+      "order.cancelled"
+    ]
   }'
 ```
 
-```bash Delete a webhook
-curl -X DELETE "$BASE_URL/webhooks/$WEBHOOK_ID" \
-  -H "Authorization: Basic $AUTH"
-```
-</CodeGroup>
-
-## Webhook payload format
-
-Every event delivery follows the same envelope structure: an `event` name, a `timestamp`, and a `data` object containing the relevant resource.
+#### Example response
 
 ```json
 {
-  "event": "order.filled",
-  "timestamp": "2025-06-15T14:30:15Z",
-  "data": {
-    "id": "ord_x9y8z7a6b5c4d3e2",
-    "investor_id": "inv_01j9x8m2k7qpzwv3t5r6y8n0ab",
-    "symbol": "AAPL",
-    "side": "buy",
-    "status": "filled",
-    "filled_quantity": "10",
-    "average_price": "178.50"
-  }
+  "id": "wh_a1b2c3d4-e5f6-7a8b-9c0d-e1f2a3b4c5d6",
+  "url": "https://myapp.com/webhooks/tapp",
+  "events": [
+    "account.kyc_approved",
+    "account.closed",
+    "funding.deposit_completed",
+    "order.filled",
+    "order.cancelled"
+  ],
+  "status": "active",
+  "secret": "whsec_xK9mP2qR7tNvL4jW8cB5yZ3hF6dE1sA0",
+  "created_at": "2026-03-24T10:00:00Z"
 }
 ```
 
-<ResponseField name="event" type="string">
-  The event name in `{domain}.{action}` format (e.g., `order.filled`).
-</ResponseField>
+---
 
-<ResponseField name="timestamp" type="string">
-  ISO 8601 timestamp of when the event occurred in Buildmarkets.
-</ResponseField>
+## List webhooks
 
-<ResponseField name="data" type="object">
-  The resource that triggered the event. Shape varies by event type — for order events, this is an order object; for transfer events, a transfer object; and so on.
-</ResponseField>
+Returns all registered webhook endpoints for your account.
 
-## Retry behavior
+### `GET /v1/webhooks`
 
-If your endpoint doesn't respond with `2xx` within **30 seconds**, Buildmarkets automatically retries with exponential backoff:
+#### Example request
 
-| Attempt | Delay |
-|---|---|
-| 1st retry | ~1 minute |
-| 2nd retry | ~5 minutes |
-| 3rd retry | ~30 minutes |
-| 4th retry | ~2 hours |
-| 5th retry | ~8 hours |
+```bash
+curl https://api.tappengine.com/v1/webhooks \
+  -H "Authorization: Bearer $TAPP_API_KEY"
+```
 
-<Warning>
-After all retries are exhausted, the event is sent to a dead letter queue. Contact Buildmarkets support to replay failed events if your endpoint was unavailable for an extended period.
-</Warning>
+#### Example response
 
-## Best practices
+```json
+[
+  {
+    "id": "wh_a1b2c3d4-e5f6-7a8b-9c0d-e1f2a3b4c5d6",
+    "url": "https://myapp.com/webhooks/tapp",
+    "events": ["account.kyc_approved", "order.filled"],
+    "status": "active",
+    "created_at": "2026-03-24T10:00:00Z"
+  }
+]
+```
 
-<CardGroup cols={2}>
-  <Card title="Respond quickly" icon="bolt">
-    Return `2xx` within 30 seconds. If your processing logic takes longer, enqueue the payload and acknowledge receipt immediately.
-  </Card>
-  <Card title="Handle duplicates" icon="copy">
-    The same event may be delivered more than once during retries. Use the event `id` for deduplication.
-  </Card>
-  <Card title="Verify signatures" icon="shield-check">
-    Validate the webhook signature header on every incoming request to ensure it came from Buildmarkets and hasn't been tampered with.
-  </Card>
-  <Card title="Use HTTPS" icon="lock">
-    Webhook endpoints must use HTTPS in production. HTTP endpoints are accepted only in sandbox environments.
-  </Card>
-</CardGroup>
+> **Note:** The `secret` field is **not** included in list or get responses — only in the initial `201` creation response.
 
-## Testing webhooks
+---
 
-In sandbox, webhooks fire exactly as in production. Use the following tools for local development without deploying a server:
+## Get a webhook
 
-- **[webhook.site](https://webhook.site)** — Instantly inspect webhook payloads in a browser without writing any code.
-- **[ngrok](https://ngrok.com)** — Create a secure tunnel to expose your local server at a public HTTPS URL.
+Returns the configuration for a single registered webhook by ID. The signing `secret` is not returned.
 
-<Tip>
-Start with `webhook.site` to confirm your event subscriptions are firing correctly, then switch to ngrok when you're ready to test your actual handler code.
-</Tip>
+### `GET /v1/webhooks/{webhookId}`
 
-## Key endpoints
+#### Path parameters
 
-| Method | Path | Description |
-|---|---|---|
-| `GET` | `/webhooks/event-types` | List all available event types |
-| `POST` | `/webhooks` | Register a new webhook |
-| `GET` | `/webhooks` | List all registered webhooks |
-| `PATCH` | `/webhooks/{webhook_id}` | Update a webhook's URL or subscriptions |
-| `DELETE` | `/webhooks/{webhook_id}` | Delete a webhook |
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `webhookId` | string (UUID) | ✅ | The webhook ID |
+
+#### Example request
+
+```bash
+curl https://api.tappengine.com/v1/webhooks/wh_a1b2c3d4-e5f6-7a8b-9c0d-e1f2a3b4c5d6 \
+  -H "Authorization: Bearer $TAPP_API_KEY"
+```
+
+---
+
+## Update a webhook
+
+Updates the URL, subscribed events, or status of an existing webhook. Only include fields you want to change.
+
+### `PATCH /v1/webhooks/{webhookId}`
+
+#### Path parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `webhookId` | string (UUID) | ✅ | The webhook ID to update |
+
+#### Request body (all fields optional)
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `url` | string | New HTTPS URL to deliver events to |
+| `events` | array of strings | Updated list of subscribed event types |
+| `status` | string | `active` to enable delivery, `disabled` to pause it |
+
+#### Example request — disable a webhook temporarily
+
+```bash
+curl -X PATCH https://api.tappengine.com/v1/webhooks/wh_a1b2c3d4-e5f6-7a8b-9c0d-e1f2a3b4c5d6 \
+  -H "Authorization: Bearer $TAPP_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"status": "disabled"}'
+```
+
+#### Example request — update URL and event subscriptions
+
+```bash
+curl -X PATCH https://api.tappengine.com/v1/webhooks/wh_a1b2c3d4-e5f6-7a8b-9c0d-e1f2a3b4c5d6 \
+  -H "Authorization: Bearer $TAPP_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "url": "https://myapp.com/webhooks/tapp-v2",
+    "events": ["account.kyc_approved", "order.filled", "order.rejected", "funding.deposit_completed"]
+  }'
+```
+
+---
+
+## Send a test event
+
+Triggers a synthetic test payload to be sent to the webhook's registered URL. Use this to verify that your endpoint is reachable and correctly processing TAPP payloads without waiting for a real event to occur.
+
+### `POST /v1/webhooks/{webhookId}/test`
+
+#### Path parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `webhookId` | string (UUID) | ✅ | The webhook ID to test |
+
+#### Example request
+
+```bash
+curl -X POST https://api.tappengine.com/v1/webhooks/wh_a1b2c3d4-e5f6-7a8b-9c0d-e1f2a3b4c5d6/test \
+  -H "Authorization: Bearer $TAPP_API_KEY"
+```
+
+TAPP sends a test payload with `"event_type": "webhook.test"` to the registered URL. Your endpoint should respond with a `2xx` status. Check the [delivery history](/guides/operations/webhook-setup) to see whether it was received successfully.
+
+---
+
+## Delete a webhook
+
+Permanently removes the webhook. Delivery to the registered URL stops immediately. This action cannot be undone.
+
+### `DELETE /v1/webhooks/{webhookId}`
+
+Returns `204 No Content` on success.
+
+#### Example request
+
+```bash
+curl -X DELETE https://api.tappengine.com/v1/webhooks/wh_a1b2c3d4-e5f6-7a8b-9c0d-e1f2a3b4c5d6 \
+  -H "Authorization: Bearer $TAPP_API_KEY"
+```
+
+---
+
+## Common errors
+
+| HTTP Status | Error | Cause |
+|-------------|-------|-------|
+| `400` | `INVALID_URL` | Webhook URL is not a valid `https://` URI |
+| `400` | `INVALID_EVENT` | One or more event names in the `events` array are not recognized |
+| `404` | `WEBHOOK_NOT_FOUND` | No webhook found for the provided `webhookId` |
+
+---
+
+## Next steps
+
+*   [Webhook Events Reference →](/guides/operations/webhook-setup) — Full list of event types and their payload schemas
+*   [Webhook Security & Delivery →](/guides/operations/webhook-setup) — Signature verification, retry logic, and delivery history
+
+Updated 3 months ago

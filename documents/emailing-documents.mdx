@@ -1,0 +1,33 @@
+---
+title: "Emailing Documents"
+sidebarTitle: "Emailing Documents"
+description: "How to deliver statements, tax forms, and trade confirmations to recipient inboxes using the documents email endpoint."
+---
+
+The TAPP Engine documentation page explains how to deliver documents via email after retrieving them through the documents API.
+
+## Core Functionality
+
+The platform offers a `POST /v1/documents/email` endpoint that enables sending documents directly to recipient inboxes. As described in the guide, this feature allows users to request statements, tax forms, or trade confirmations "without building a separate delivery pipeline."
+
+## Request Parameters
+
+The endpoint accepts two fields:
+- **documentUrl** (required): An HTTPS URL from the `/v1/documents/list` response
+- **email** (optional): Recipient address; if omitted, the system uses the account holder's registered email
+
+## Response Structure
+
+Successful requests return a response object containing a `successful` boolean and an optional `message` field confirming dispatch or describing errors.
+
+## Error Handling
+
+The documentation identifies several potential failure scenarios:
+- Invalid or malformed URLs trigger an `INVALID_DOCUMENT_URL` error
+- Improperly formatted email addresses generate an `INVALID_EMAIL` response
+- Missing or invalid API credentials result in `UNAUTHORIZED` status
+- Server-side processing failures return an `INTERNAL_ERROR`
+
+## Integration Context
+
+This endpoint operates within the Documents section of TAPP Wealth, complementing related functionality for retrieving, uploading, and requesting documents.

@@ -1,15 +1,88 @@
 ---
-title: "Wealth Management API"
+title: "Wealth Management"
 sidebarTitle: "Wealth Management"
-description: "Managed portfolios, financial planning, risk assessments, and automated investing — full wealth lifecycle through the API."
+description: "Integration patterns showing which TAPP Engine API capabilities power embedded brokerage, advisor-managed, robo-advisor, and other investing products."
 ---
 
-Offer managed portfolios, financial planning, risk assessments, and automated investing to your users. The Buildmarkets Wealth Management API powers robo-advisors, financial planner apps, and employee benefits platforms.
+"TAPP Engine is flexible enough to power a wide range of embedded investing products." This documentation explores integration patterns to clarify which API capabilities align with your needs before development begins.
 
-## Book a demo
+## Use case matrix
 
-Get a personalized walkthrough of the Wealth Management API. Our team will show you how to integrate investor profiles, risk assessments, financial planning, and managed portfolios.
+| Scenario | Accounts | Trading | Funding | Market Data | Documents | Webhooks |
+|----------|----------|---------|---------|-------------|-----------|----------|
+| Embedded brokerage app | ✅ | ✅ | ✅ | ✅ | | |
+| Advisor-managed accounts | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Robo-advisor / automated investing | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Challenger bank with investing | ✅ | ✅ | ✅ | ✅ | | ✅ |
+| Employee investment benefits | ✅ | ✅ | ✅ | ✅ | ✅ | |
 
-<Card title="Request a Wealth Management demo" icon="calendar" href="mailto:ope@bluumfinance.com?subject=Wealth%20Management%20Demo%20Request" horizontal>
-  Interested in embedding wealth management into your product? Contact us to schedule a demo or discuss your use case.
-</Card>
+## 1. Embedded brokerage app
+
+**Scenario:** You're building a consumer fintech app and want to add an "Invest" tab that lets users open a brokerage account, fund it, and trade stocks and ETFs.
+
+**What you'll build:** (1) Collect KYC data and open a brokerage account — `POST /v1/accounts`; (2) Link the user's external bank account via ACH — `POST /v1/accounts/{accountId}/ach-relationships`; (3) Initiate an initial cash deposit — `POST /v1/accounts/{accountId}/funding/deposits`; (4) Display a stock or ETF search using reference data — `POST /v1/marketdata/reference/symbol-details`; (5) Place a market or limit order — `POST /v1/accounts/{accountId}/orders`; (6) Display the portfolio — balances and open positions — `GET /v1/accounts/{accountId}/balances` + `/positions`.
+
+**Key account fields:** `account_type: "individual"`, `investment_profile`, `agreements`. **Key order fields:** `symbol`, `asset_class` (`equity` or `etf`), `order_type`, `side`, `quantity` or `notional`, `client_order_id`.
+
+## 2. Advisor-managed accounts
+
+**Scenario:** You operate a wealth management platform where registered advisors manage portfolios on behalf of clients.
+
+**What you'll build:** (1) Open a client account with advisor metadata — `POST /v1/accounts`; (2) Fund the client account via ACH — `POST /v1/accounts/{accountId}/funding/deposits`; (3) Place and manage orders on the client's behalf — `POST /v1/accounts/{accountId}/orders`; (4) Modify or cancel working orders — `PATCH` / `DELETE /v1/accounts/{accountId}/orders/{orderId}`; (5) Monitor portfolio value across all client accounts — `GET /v1/accounts/{accountId}/balances` + `/positions`; (6) Receive real-time fill confirmations via webhook — `POST /v1/webhooks`.
+
+**Key account fields:** `discretionary_account: true` (grants the advisor full trading authority); `registered_rep_code` (associates with a registered representative); `advisor_code` (associates with a specific advisor). **Key order fields:** Use `client_order_id` on every order to prevent duplicate submissions. Orders support `market`, `limit`, `stop`, and `stop_limit` types for equities and ETFs.
+
+## 3. Robo-advisor / automated investing
+
+**Scenario:** You're building an automated investing product where users define goals and risk tolerance and your system manages their portfolio using rules-based logic.
+
+**What you'll build:** (1) Open an account capturing detailed suitability data — `POST /v1/accounts`; (2) Enable automatic dividend reinvestment — `dividend_reinvestment: true` on account creation; (3) Fund accounts on a recurring schedule via ACH — `POST /v1/accounts/{accountId}/funding/deposits`; (4) Submit dollar-based orders to implement your allocation model — `POST /v1/accounts/{accountId}/orders` with `notional`; (5) Rebalance by cancelling and replacing working orders — `DELETE` + `POST /v1/accounts/{accountId}/orders`; (6) React to order fill events to trigger the next rebalancing step — `POST /v1/webhooks` (subscribe to order events).
+
+**Key account fields:** `investment_profile.risk_tolerance` (`conservative`, `moderate`, `aggressive`); `investment_profile.investment_objective` (e.g. `growth`, `income`, `capital_preservation`); `investment_profile.time_horizon` (`short`, `average`, `long`); `dividend_reinvestment` (auto-reinvests dividends into the same security). **Key order fields:** Use `notional` (dollar amount) instead of `quantity` (share count) for dollar-cost averaging. Supports `gtc` (good-till-cancelled) time-in-force for limit-based allocation strategies.
+
+## 4. Challenger bank with investing
+
+**Scenario:** You run a challenger bank and want to offer integrated stock and ETF trading alongside your existing deposit accounts.
+
+**What you'll build:** (1) Open a brokerage account tied to your existing user record — `POST /v1/accounts` with `corr_metadata`; (2) Link your bank's account as the funding source — `POST /v1/accounts/{accountId}/ach-relationships`; (3) Power market data widgets — quotes, logos, news — `GET /v1/marketdata/real-time/{symbol}`, `/logos/{symbol}`, `/news/{symbol}`; (4) Let users place orders from within your banking UI — `POST /v1/accounts/{accountId}/orders`; (5) Sync order and funding status back to your core system — `POST /v1/webhooks`; (6) Retrieve execution reports for internal reconciliation — `GET /v1/accounts/{accountId}/orders/{orderId}/executions`.
+
+**Key account field:** `corr_metadata` — a freeform string (up to 255 chars) for storing your internal user or account ID alongside the TAPP Engine account. Makes it easy to look up the TAPP account from your system without maintaining a separate mapping table. **Key market data endpoints:** Real-time prices, company profiles, stock logos, and news feeds are all available at the partner level — no account context required. Ideal for powering discovery and watchlist UIs.
+
+## 5. Employee investment benefits
+
+**Scenario:** You're an HR or benefits platform and want to offer employees a brokerage account as a workplace benefit, funded via payroll integration.
+
+**What you'll build:** (1) Open accounts with employer and employee metadata — `POST /v1/accounts` with `corr_metadata`, `registered_rep_code`; (2) Set up ACH relationships linked to employee bank accounts — `POST /v1/accounts/{accountId}/ach-relationships`; (3) Initiate recurring payroll-linked deposits — `POST /v1/accounts/{accountId}/funding/deposits`; (4) Offer a curated investment menu using sector and security reference data — `GET /v1/marketdata/reference/sectors`, `POST /v1/marketdata/reference/sector-symbols`; (5) Deliver tax documents and statements to employees by email — `POST /v1/documents/email`; (6) Retrieve year-end documents including W-9s — `POST /v1/documents/w9`, `POST /v1/documents/list`.
+
+**Key market data endpoints:** Use the equity security master (`POST /v1/marketdata/reference/equity-security-master`) and sector-symbols (`POST /v1/marketdata/reference/sector-symbols`) to build a curated fund menu scoped to specific industries or sectors rather than exposing the entire universe of tradable securities.
+
+## Common integration patterns
+
+### Webhooks over polling
+
+"For operational state changes — account KYC approval, order fills, deposit settlements — use webhooks rather than polling." Configure a webhook endpoint via `POST /v1/webhooks` and subscribe to the specific event types you need. Polling is acceptable for UI-driven reads like balances and positions. See Webhooks Overview for the full event catalog and delivery guarantees.
+
+### Idempotency with `client_order_id`
+
+Pass a `client_order_id` on every `POST /v1/accounts/{accountId}/orders` request. If a network timeout forces a retry, TAPP Engine returns the existing order rather than creating a duplicate. A reliable scheme: `{your-user-id}-{symbol}-{side}-{date}-{sequence}`.
+
+### Handling pending states
+
+| Resource | Pending state | Active state |
+|----------|---------------|--------------|
+| Account | `SUBMITTED` → `APPROVAL_PENDING` | `ACTIVE` |
+| ACH relationship | `PENDING` | `APPROVED` |
+| Deposit / withdrawal | `PENDING` | `SETTLED` |
+
+Use webhooks (or poll sparingly) to detect these transitions before presenting confirmations in your UI.
+
+### `corr_metadata` for cross-system linking
+
+"The `corr_metadata` field on an account is your bridge between TAPP Engine and your internal data model." Store your internal user ID, account reference, or any structured string there at account creation. This eliminates the need for a separate ID-mapping database and makes cross-system lookups straightforward.
+
+## Next steps
+
+* Getting Started — Make your first API call end-to-end
+* Account Opening — Full field reference for `POST /v1/accounts`
+* Placing Orders — Order types, time-in-force, and idempotency
+* Webhooks Overview — Event catalog and delivery configuration

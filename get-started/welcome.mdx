@@ -1,103 +1,127 @@
 ---
-title: "Buildmarkets: Investment Infrastructure API for Fintechs"
+title: "Welcome to Tapp Engine"
 sidebarTitle: "Introduction"
-description: "Buildmarkets is an investment infrastructure API. Embed brokerage accounts, order execution, ACH funding, KYC, and compliance in one integration."
+description: "Overview of the TAPP Engine API for brokerage, trading, and wealth-management workflows, plus platform architecture and environments."
 ---
 
-Buildmarkets is an investment infrastructure API for fintech companies. It sits between your application and the financial system — handling account onboarding, identity verification, custodian routing, order execution, wallet management, and regulatory compliance. You build the user experience; Buildmarkets provides the rails.
+Welcome to the **TAPP Engine API** documentation. This site explains how to integrate with the TAPP Engine platform for brokerage, trading, and wealth-management workflows.
 
-## How it works
+## Start here
 
-Your application makes REST calls to the Buildmarkets API. Buildmarkets orchestrates all downstream operations — creating brokerage accounts with custodians, routing orders to exchanges, initiating ACH transfers, running identity verification — and returns clean, normalized responses. Webhook events notify you in real time when asynchronous operations complete (order fills, deposit arrivals, KYC decisions).
+Pick your path based on what you're building:
 
-```text
-┌─────────────┐      ┌─────────────────┐      ┌──────────────────┐
-│  Your App   │ ───► │   Buildmarkets API     │ ───► │  Financial System │
-│  (Frontend) │ ◄─── │  (Orchestrator) │ ◄─── │  (Custodians,    │
-└─────────────┘      └─────────────────┘      │   Banks, KYC)    │
-                                               └──────────────────┘
-```
-
-## Two integration models
-
-Buildmarkets supports two ways to embed investing, depending on your product:
-
-| | Self-Directed Investing | Wealth Management |
-|---|---|---|
-| **What it is** | Your users decide what to buy and sell | Buildmarkets' engine manages portfolios on behalf of your users |
-| **Account type** | `individual` with `management_type: "self_directed"` | `individual` with `management_type: "advised"` |
-| **Who places trades** | End user (through your UI) | Strategy engine (via portfolios and auto-invest) |
-| **Wealth APIs needed** | No | Yes (profiles, risk, goals, portfolios) |
-| **Typical products** | Trading apps, invest tabs, stock gifting, round-ups | Robo-advisors, financial planner apps, employee benefits |
-| **Time to first trade** | ~30 min in sandbox | ~1 hour in sandbox |
-
-Both models share the same foundation: accounts, compliance, wallets, funding, and market data. Wealth Management adds a layer of financial planning, risk assessment, and portfolio automation on top.
-
-## Core objects
-
-These are the building blocks you'll work with across both integration models.
-
-**Shared across all integrations:**
-
-| Object | What it represents |
+| You want to… | Start here |
 |---|---|
-| **Account** | An investment account for one end user. Holds identity, contact info, disclosures, and agreements. |
-| **Wallet** | The cash balance for an account. Receives deposits, funds trades, and disburses withdrawals. |
-| **Deposit / Withdrawal** | A money movement into or out of a wallet. Supports ACH (via Plaid) and manual bank transfer. |
-| **Funding Source** | A linked bank account (via Plaid) used for ACH deposits and withdrawals. |
-| **Order** | A buy or sell instruction. Supports market, limit, stop, and trailing stop types. |
-| **Position** | A holding in a specific asset — quantity, cost basis, current value, and P&L. |
-| **Asset** | A tradable instrument (stock, ETF). Searchable by symbol, name, or asset class. |
-| **Webhook** | A registered URL that receives event notifications (order filled, deposit completed, etc.). |
+| **Build or integrate a trading app** – Place orders, manage accounts, view positions | Getting Started → Placing Orders |
+| **Handle account onboarding, funding, and documents** | Trading Account → Funding Overview |
+| **Power UIs with market data** – Quotes, history, news, fundamentals | Market Data Overview |
+| **React to real-time events in your backend** | Webhooks Overview |
+| **Manage API credentials programmatically** | Authentication Overview → API Keys |
 
-**Wealth Management only:**
+Use the sidebar to jump to a topic, or start with Getting Started and Authentication to make your first authenticated request.
 
-| Object | What it represents |
+## What you'll find here
+
+The TAPP Engine documentation is organized into two main areas:
+
+**Introduction** — Core concepts every integrator needs: authentication, error handling, sandbox testing, and a guided getting-started walkthrough.
+
+**TAPP Wealth** — Feature-by-feature guides for each product area:
+
+- **Accounts** — Open, manage, and close brokerage accounts. Handle KYC, retrieve balances, and view open positions.
+- **Trading** — Place equity orders (market, limit, stop, stop-limit), manage open orders, retrieve fills, and view account activities.
+- **Money Movement** — Link bank accounts via ACH, initiate deposits and withdrawals, and track funding activity.
+- **Market Data** — Real-time quotes, historical OHLCV bars, fundamentals, news, company profiles, and reference data.
+- **Documents** — Retrieve, email, and upload account documents, tax forms, and statements.
+- **Webhooks** — Subscribe to real-time event notifications for orders, accounts, and funding.
+
+## Key areas
+
+### Base URLs
+
+| Environment | Base URL |
 |---|---|
-| **Investor Profile** | Comprehensive financial picture — demographics, employment, tax, insurance, estate planning, preferences. |
-| **Risk Assessment** | A questionnaire-based risk tolerance score that drives portfolio construction. |
-| **Goal** | A financial objective (retirement, home purchase) with target amount and timeline. |
-| **Financial Plan** | A generated plan that maps goals to investment strategies. |
-| **Portfolio** | A managed collection of holdings governed by an Investment Policy Statement. |
-| **Auto-Invest** | A recurring schedule that automatically invests into a portfolio. |
+| **Sandbox (Dev)** | `https://dev-tapp-api.tappengine.com` |
+| **Production** | `https://api.tappengine.com` |
 
-## Authentication
+> **Tip:** Always build and test against the sandbox environment first. The sandbox supports all the same endpoints as production and provides test KYC outcomes using specific SSN suffixes.
 
-All API requests use **HTTP Basic Authentication**. Your API Key is the username and your API Secret is the password. Encode both together using Base64 and pass the result in the `Authorization` header.
+### Authentication
 
-```bash
-curl -X GET 'https://test-service.bluumfinance.com/v1/assets?asset_class=us_equity' \
-  -H 'Authorization: Basic '$(echo -n 'YOUR_API_KEY:YOUR_API_SECRET' | base64)
-```
+All requests are authenticated using your `X-API-Key` and `X-API-Secret` headers. You generate API keys from the TAPP Engine Partner Dashboard or via the API Keys endpoint.
 
-You receive separate credentials for sandbox and production. See [Authentication](/platform/authentication) for full details.
+### Versioning
 
-<Note>
-  Never commit API credentials to source control. Store them in a secret manager (AWS Secrets Manager, HashiCorp Vault, or Doppler) or load them from environment variables at runtime.
-</Note>
-
-## Environments
-
-| Environment | Base URL | Purpose |
-|---|---|---|
-| **Sandbox** | `https://test-service.bluumfinance.com/v1` | Development and testing. Data resets nightly. Simulated order fills. |
-| **Production** | `https://service.bluumfinance.com/v1` | Live operations. Real money and securities. Requires compliance approval. |
-
-Start in sandbox — no approval needed. See [Sandbox Environment](/get-started/sandbox) for setup details.
+The current stable API version is **v1**. All v1 endpoints are prefixed with `/v1/`. Breaking changes will be released under a new version path and announced in the Changelog.
 
 ## Next steps
 
-<CardGroup cols={2}>
-  <Card title="Quick Start: Self-Directed" icon="bolt" href="/get-started/quick-start-self-directed">
-    Create an account, fund it, and place your first trade in under 30 minutes.
-  </Card>
-  <Card title="Wealth Management" icon="chart-line" href="/get-started/quick-start-wealth">
-    Offer managed portfolios, financial planning, and automated investing. Book a demo to get started.
-  </Card>
-  <Card title="Sandbox Environment" icon="flask" href="/get-started/sandbox">
-    Get your API credentials and configure your local environment for development.
-  </Card>
-  <Card title="Go Live" icon="rocket" href="/get-started/go-live">
-    Production readiness checklist and steps to request your production credentials.
-  </Card>
-</CardGroup>
+1. About TAPP Engine — Understand the platform architecture
+2. Getting Started — Make your first API call in minutes
+3. Authentication Overview — Set up your API credentials
+4. Use Cases — Explore common integration patterns
+
+---
+
+## About TAPP Engine
+
+TAPP Engine is a white-label wealth management and brokerage infrastructure platform built for financial institutions. It provides the API layer that lets financial institutions offer investment accounts, equity and ETF trading, managed portfolios, and funding services directly within their own member- or customer-facing experiences — powered by a FINRA-registered broker-dealer and SEC-registered RIA.
+
+### TAPP Engine API Overview
+
+TAPP Engine APIs sit between your application and the underlying brokerage and clearing infrastructure. You interact with a single, unified REST API; TAPP Engine handles everything underneath:
+
+* **Account opening & KYC** — Identity verification, regulatory disclosures, and agreement capture
+* **Order routing** — Routing equity and ETF orders to market
+* **ACH funding** — Linking bank accounts and moving money in and out
+* **Market data** — Real-time quotes, historical bars, fundamentals, and reference data
+* **Document management** — Statements, tax forms, and compliance documents
+* **Webhooks** — Real-time event delivery for orders, accounts, and funding status changes
+
+### Platform Architecture
+
+Your Application (Member Portal, Mobile App, or Back-Office Integration) connects via REST API (HTTPS) using X-API-Key / X-API-Secret to the TAPP Engine API. The TAPP Engine API exposes modules for Accounts, Order Management, Portfolios, Market Data, Funding, Documents, Advisory, and Webhooks. Underneath, it connects to Clearing & Custody (RQD Clearing) and Market Data Providers.
+
+### Who is TAPP Engine for?
+
+TAPP Engine is designed for **partners** — financial institutions that want to embed investing features into their product:
+
+| Partner type | Example use case |
+|---|---|
+| **Fintech apps** | Add a brokerage account tab to a personal finance app |
+| **Wealth platforms** | Power advisor-managed accounts with API-driven rebalancing |
+| **Challenger banks** | Offer stock trading alongside deposit accounts |
+| **Robo-advisors** | Automate goal-based portfolio construction and management |
+| **HR / benefits platforms** | Provide employee investment accounts as a workplace benefit |
+
+### Product Areas
+
+#### TAPP Wealth
+
+The core brokerage suite. Includes account management, equity and ETF trading, ACH funding, market data, and documents.
+
+#### TAPP FIX Gateway
+
+For partners with their own OMS or algorithmic trading infrastructure, TAPP Engine offers a FIX 4.2-compliant gateway for high-throughput order submission.
+
+### Environments
+
+| Attribute | Sandbox | Production |
+|---|---|---|
+| **Purpose** | Integration development and QA | Live trading with real funds |
+| **Base URL** | `https://dev-tapp-api.tappengine.com` | `https://api.tappengine.com` |
+| **KYC** | Simulated via SSN suffix | Real KYC processing |
+| **Orders** | Simulated fills | Real order routing |
+| **Funding** | No real money moved | Real ACH transfers |
+
+### Regulatory & Compliance
+
+TAPP Engine's underlying brokerage infrastructure is operated through a registered broker-dealer and FINRA member. As a partner, you agree to TAPP Engine's partner program terms, which govern your use of the platform and your obligations with respect to customer accounts opened through your application.
+
+Refer to your partner agreement for specifics on your compliance obligations, including customer suitability, supervision, and recordkeeping requirements.
+
+### Next Steps
+
+* Introduction to TAPP Engine — Understand the key concepts and data model
+* Use Cases — See common integration patterns
+* Getting Started — Make your first API call

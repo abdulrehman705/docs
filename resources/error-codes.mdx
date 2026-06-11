@@ -1,129 +1,157 @@
 ---
-title: "Buildmarkets API Error Codes: Full Reference Guide"
+title: "Error Code Reference"
 sidebarTitle: "Error Codes"
-description: "Complete catalog of BLUM error codes for HTTP 400 through 500, with human-readable messages, causes, and step-by-step fix guidance."
+description: "Reference table of TAPP Engine HTTP status codes and error codes for authentication, validation, account, trading, and funding errors plus rate limits."
 ---
 
-Every Buildmarkets API error follows the pattern `BLUM-{HTTP_STATUS}-{SEQUENCE}`. When a request fails, the response body includes the `code`, a human-readable `message`, and contextual detail. Use this reference to understand each code and resolve it quickly.
+TAPP Engine uses standard HTTP status codes along with structured JSON error bodies to communicate what went wrong. This page is your reference for understanding and handling error responses.
 
-## 400 — Bad Request
+## Error response format
 
-Validation failures and malformed requests. Fix the request and resubmit — do not retry without changes.
+All error responses return a JSON body with a consistent structure:
 
-| Code | Message | Resolution |
-| --- | --- | --- |
-| `BLUM-400-001` | Generic validation error | Check the error message for specific field details |
-| `BLUM-400-002` | Missing required field | Include all required fields in your request |
-| `BLUM-400-003` | Invalid field format | Match expected types: dates as ISO 8601, phone as E.164, country as ISO alpha-2 |
-| `BLUM-400-004` | Invalid enum value | Use one of the documented enum values |
-| `BLUM-400-005` | Invalid amount | Amount must be a positive decimal string (e.g., `"100.00"`) |
-| `BLUM-400-006` | Invalid quantity | Quantity must be a positive number |
-| `BLUM-400-007` | Invalid date range | Start date must be before end date |
-| `BLUM-400-008` | Request body too large | Reduce payload size (file uploads: max 10 MB) |
-
-## 401 — Unauthorized
-
-Authentication failures. Correct your credentials before retrying.
-
-| Code | Message | Resolution |
-| --- | --- | --- |
-| `BLUM-401-001` | Missing authorization header | Include `Authorization: Basic <credentials>` |
-| `BLUM-401-002` | Malformed authorization header | Format: `Basic <base64(API_KEY:API_SECRET)>` |
-| `BLUM-401-003` | Invalid API key or secret | Verify credentials are correct and not revoked |
-| `BLUM-401-004` | API key inactive | Contact support to activate your API key |
-| `BLUM-401-005` | API key expired | Generate new credentials in the dashboard |
-
-## 403 — Forbidden
-
-Authorization and permission errors. The credentials are valid, but the key lacks access to the requested resource.
-
-| Code | Message | Resolution |
-| --- | --- | --- |
-| `BLUM-403-001` | Insufficient permissions | Your API key doesn't have access to this resource |
-| `BLUM-403-002` | Account not approved | Complete KYC verification before trading |
-| `BLUM-403-003` | Production access required | Request production access from support |
-| `BLUM-403-004` | Operation not allowed | The current account state doesn't permit this operation |
-
-## 404 — Not Found
-
-The requested resource doesn't exist or isn't accessible under your tenant.
-
-| Code | Message | Resolution |
-| --- | --- | --- |
-| `BLUM-404-001` | Resource not found | Verify the ID exists and belongs to your tenant |
-| `BLUM-404-002` | Endpoint not found | Check the URL path against the API reference |
-| `BLUM-404-003` | Asset not found | Verify the symbol or asset ID |
-
-## 409 — Conflict
-
-Duplicate resources or state conflicts.
-
-| Code | Message | Resolution |
-| --- | --- | --- |
-| `BLUM-409-001` | Duplicate resource | A resource with these attributes already exists |
-| `BLUM-409-002` | Idempotency conflict | Same idempotency key was used with a different request body |
-| `BLUM-409-003` | State conflict | Resource is in a state that prevents this operation |
-
-## 422 — Unprocessable Entity
-
-Business rule violations. The request is well-formed but cannot be executed in the current context.
-
-| Code | Message | Resolution |
-| --- | --- | --- |
-| `BLUM-422-001` | Insufficient funds | Wallet balance is too low for this operation |
-| `BLUM-422-002` | Market closed | Place the order during market hours or use `gtc` time-in-force |
-| `BLUM-422-003` | Asset not tradable | This asset is not available for trading |
-| `BLUM-422-004` | Position insufficient | Not enough shares to sell |
-| `BLUM-422-005` | Withdrawal limit exceeded | Exceeds available withdrawal balance |
-
-## 429 — Too Many Requests
-
-Rate limit exceeded. Back off and retry.
-
-| Code | Message | Resolution |
-| --- | --- | --- |
-| `BLUM-429-001` | Rate limit exceeded | Wait and retry with exponential backoff; check the `Retry-After` response header for the delay duration |
-
-<Note>
-  Rate limits are **10 requests/second** in sandbox and **25 requests/second** in production. The `Retry-After` header tells you exactly how long to wait before the next attempt.
-</Note>
-
-## 500 — Internal Server Error
-
-Server-side errors. These are safe to retry with exponential backoff.
-
-| Code | Message | Resolution |
-| --- | --- | --- |
-| `BLUM-500-001` | Internal error | Retry with exponential backoff; contact support if the error persists |
-| `BLUM-500-017` | External service error | An upstream service is temporarily unavailable; retry after a short delay |
-
-## Handling errors programmatically
-
-Use the structured error code to drive your retry and escalation logic. Client errors (`4xx`) indicate a problem with the request itself and should not be retried without a fix; server errors (`5xx`) and rate limits (`429`) are transient and benefit from exponential backoff:
-
-```javascript
-async function handleBluumResponse(response) {
-  if (response.ok) return response.json();
-
-  const error = await response.json();
-  const [, status] = error.code.match(/BLUM-(\d+)-/) || [];
-
-  switch (status) {
-    case '400': // Fix request and don't retry
-    case '401': // Fix credentials
-    case '403': // Fix permissions
-    case '404': // Fix resource ID
-    case '422': // Fix business logic
-      throw new Error(`Client error: ${error.code} - ${error.message}`);
-
-    case '429': // Retry with backoff
-      const retryAfter = response.headers.get('Retry-After') || 1;
-      await sleep(retryAfter * 1000);
-      return retry();
-
-    case '500': // Retry with backoff
-      await sleep(1000);
-      return retry();
+```json
+{
+  "error": {
+    "code": "VALIDATION_ERROR",
+    "message": "tax_id must be 9–11 characters",
+    "field": "identity.tax_id",
+    "request_id": "req_abc123xyz"
   }
 }
 ```
+
+| Field | Description |
+|-------|-------------|
+| `code` | A machine-readable error code string |
+| `message` | A human-readable description of the error |
+| `field` | (When applicable) The request field that caused the error |
+| `request_id` | A unique ID for this request — include this when contacting TAPP Engine support |
+
+## HTTP status codes
+
+### 2xx — Success
+
+| Code | Meaning |
+|------|---------|
+| `200 OK` | Request succeeded. Response body contains the resource. |
+| `201 Created` | Resource was created. Response body contains the new resource. |
+| `204 No Content` | Request succeeded. No response body (e.g., DELETE, close account). |
+
+### 4xx — Client errors
+
+| Code | Meaning | Common causes |
+|------|---------|---------------|
+| `400 Bad Request` | The request body or parameters are invalid. | Missing required fields, invalid enum values, malformed JSON |
+| `401 Unauthorized` | Authentication failed. | Missing, invalid, or revoked `X-API-Key` / `X-API-Secret` |
+| `403 Forbidden` | Authenticated, but not authorized. | API key lacks the required scope for this endpoint |
+| `404 Not Found` | The requested resource doesn't exist. | Invalid `accountId`, `orderId`, etc. |
+| `409 Conflict` | Request conflicts with the current state of the resource. | Duplicate `client_order_id`, account already closed |
+| `422 Unprocessable Entity` | Request is syntactically valid but fails business-rule validation. | KYC rejection, insufficient balance for withdrawal |
+| `429 Too Many Requests` | Rate limit exceeded. | See Rate Limits below |
+
+### 5xx — Server errors
+
+| Code | Meaning |
+|------|---------|
+| `500 Internal Server Error` | An unexpected error occurred on TAPP Engine's side. |
+| `503 Service Unavailable` | The service or a dependency is temporarily unavailable. |
+
+## Common error codes
+
+### Authentication & authorization
+
+| Error code | HTTP | Description |
+|------------|------|-------------|
+| `UNAUTHORIZED` | 401 | API key or secret is missing or invalid |
+| `FORBIDDEN` | 403 | API key is valid but lacks the required scope |
+| `KEY_REVOKED` | 401 | The API key has been revoked |
+
+### Validation errors
+
+| Error code | HTTP | Description |
+|------------|------|-------------|
+| `VALIDATION_ERROR` | 400 | One or more fields failed validation. Check the `field` property. |
+| `MISSING_REQUIRED_FIELD` | 400 | A required field was omitted from the request |
+| `INVALID_ENUM_VALUE` | 400 | A field value is not in the allowed set |
+| `INVALID_FORMAT` | 400 | A field value has an incorrect format (e.g., date, phone number) |
+
+### Account errors
+
+| Error code | HTTP | Description |
+|------------|------|-------------|
+| `ACCOUNT_NOT_FOUND` | 404 | No account exists with the given `accountId` |
+| `ACCOUNT_NOT_ACTIVE` | 422 | The account is not in ACTIVE status and cannot perform this action |
+| `ACCOUNT_ALREADY_CLOSED` | 409 | The account has already been closed |
+| `KYC_REJECTED` | 422 | Account was rejected during KYC verification |
+| `KYC_PENDING` | 422 | Account KYC has not yet completed — certain actions require APPROVED status |
+
+### Trading errors
+
+| Error code | HTTP | Description |
+|------------|------|-------------|
+| `ORDER_NOT_FOUND` | 404 | No order exists with the given `orderId` |
+| `INSUFFICIENT_BUYING_POWER` | 422 | The account does not have sufficient funds to place this order |
+| `INVALID_ORDER_STATE` | 422 | The order cannot be modified or cancelled in its current state |
+| `DUPLICATE_CLIENT_ORDER_ID` | 409 | An order with this `client_order_id` already exists |
+| `MARKET_CLOSED` | 422 | The market is closed and the order type does not support extended hours |
+| `SYMBOL_NOT_TRADABLE` | 422 | The requested symbol is not available for trading |
+
+### Funding errors
+
+| Error code | HTTP | Description |
+|------------|------|-------------|
+| `ACH_RELATIONSHIP_NOT_FOUND` | 404 | No ACH relationship exists with the given ID |
+| `ACH_RELATIONSHIP_NOT_APPROVED` | 422 | The ACH relationship has not yet been approved |
+| `INSUFFICIENT_BALANCE` | 422 | The account does not have sufficient settled cash for this withdrawal |
+| `FUNDING_ACTIVITY_NOT_FOUND` | 404 | No funding activity record found for the given ID |
+
+## Rate limits
+
+TAPP Engine enforces rate limits to ensure platform stability for all partners.
+
+| Limit | Default |
+|-------|---------|
+| Requests per second (per API key) | 10 |
+| Requests per minute (per API key) | 300 |
+| Requests per day (per partner) | Contact your TAPP representative |
+
+When you exceed a rate limit, you receive a `429 Too Many Requests` response with a `Retry-After` header indicating how many seconds to wait before retrying:
+
+```
+HTTP/1.1 429 Too Many Requests
+Retry-After: 2
+```
+
+Implement **exponential backoff** in your retry logic. Do not immediately hammer the API after receiving a 429.
+
+## Handling errors in practice
+
+### Always check the error code, not just the status
+
+Use the `code` field in the error body for programmatic error handling.
+
+```javascript
+const response = await fetch('.../orders', { method: 'POST', ... });
+if (!response.ok) {
+  const { error } = await response.json();
+  if (error.code === 'INSUFFICIENT_BUYING_POWER') {
+    // Show the user a "not enough funds" message
+  } else if (error.code === 'DUPLICATE_CLIENT_ORDER_ID') {
+    // This is likely a retry — fetch the existing order
+  } else {
+    // Log the request_id and alert your on-call team
+    console.error('Unexpected error', error.request_id);
+  }
+}
+```
+
+### Log request IDs
+
+Always log the `request_id` from error responses. When contacting TAPP Engine support, provide this ID so the support team can trace the request through internal systems.
+
+### Retry strategy
+
+* **400, 401, 403, 404, 409, 422** — Do not retry. These are deterministic errors that will not resolve with a retry.
+* **429** — Retry after the `Retry-After` delay.
+* **500, 503** — Retry with exponential backoff (e.g., 1s, 2s, 4s, 8s). After 3–5 retries, alert your operations team.

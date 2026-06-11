@@ -1,109 +1,78 @@
 ---
-title: "Idempotency — Safe Retries for Financial Operations"
+title: "Idempotency"
 sidebarTitle: "Idempotency"
-description: "Use Idempotency-Key headers to retry failed requests without creating duplicates. Learn when keys are required, how to generate them, and expiration rules."
+description: "How TAPP Engine uses client_order_id to make order requests idempotent so timed-out retries return the existing order instead of duplicating it."
 ---
 
-Idempotency ensures that retrying a failed request doesn't create duplicate side effects. For financial operations like deposits and withdrawals, a duplicate could mean moving money twice — so Buildmarkets provides a built-in idempotency mechanism you should use on every mutating financial request.
+## Introduction
 
-## Why idempotency matters
+The Trading APIs enable you to place, modify, cancel, and list orders, plus view execution reports and transaction history. TAPP Engine supports **equity and ETF orders** with market and limit order types.
 
-Network failures and timeouts are inevitable. When your code retries a request after not receiving a response, you can't know whether the original request succeeded. Without idempotency, that retry could create a second deposit or a second trade. With an `Idempotency-Key` header, Buildmarkets guarantees that only one operation executes — no matter how many times you send the same request.
+## Trading Endpoints
 
-## How it works
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `POST` | `/v1/accounts/{accountId}/orders` | Place a new order |
+| `GET` | `/v1/accounts/{accountId}/orders` | List all orders for an account |
+| `GET` | `/v1/accounts/{accountId}/orders/{orderId}` | Get order details |
+| `PATCH` | `/v1/accounts/{accountId}/orders/{orderId}` | Modify an open order |
+| `DELETE` | `/v1/accounts/{accountId}/orders/{orderId}` | Cancel an open order |
+| `GET` | `/v1/accounts/{accountId}/orders/{orderId}/executions` | Get execution reports (fills) |
 
-<Steps>
-  <Step title="Generate a unique key">
-    Before sending a request, generate a unique string to identify this specific operation. Use a UUID or a value derived from your internal transaction record.
-  </Step>
-  <Step title="Include the key in the request header">
-    Pass the key as the `Idempotency-Key` header alongside your normal `Authorization` and `Content-Type` headers.
-  </Step>
-  <Step title="Retry safely">
-    If the request fails or times out, resend it with the same key and the same body. Buildmarkets returns the original response without reprocessing the operation.
-  </Step>
-</Steps>
+## Supported Asset Classes
 
-```bash
-curl -X POST "$BASE_URL/investors/$INVESTOR_ID/deposits" \
-  -H "Authorization: Basic $AUTH" \
-  -H "Content-Type: application/json" \
-  -H "Idempotency-Key: dep-abc123-unique-id" \
-  -d '{
-    "amount": "5000.00",
-    "currency": "USD",
-    "method": "ach",
-    "plaid_options": {
-      "item_id": "item_abc123",
-      "investor_id": "inv_1234567890"
-    }
-  }'
+`equity` (Individual stocks — NYSE, NASDAQ, CBOE-listed) and `etf` (Exchange-traded funds).
+
+> **Note:** "Options, fixed income, and crypto are not currently supported through the REST Trading API."
+
+## Order Types
+
+`market` — Executes immediately at the best available price (requires `symbol`, `side`, `quantity` or `notional`). `limit` — Executes only at the specified price or better (requires `limit_price`).
+
+## Time-in-Force Options
+
+| `time_in_force` | Description |
+|-----------------|-------------|
+| `day` | Active for the current trading day only. Cancels at market close if unfilled. |
+| `gtc` | Good Till Cancelled. Remains active until filled or manually cancelled. |
+| `opg` | Market-on-open. Executes at the opening auction price. |
+| `cls` | Market-on-close. Executes at the closing auction price. |
+| `ioc` | Immediate or Cancel. Fills whatever is immediately available; cancels the rest. |
+| `fok` | Fill or Kill. Fills the entire quantity immediately or cancels the entire order. |
+
+## Quantity vs. Notional
+
+Share-based uses `quantity` (e.g., `"quantity": "10"` — buy exactly 10 shares). Dollar-based uses `notional` (e.g., `"notional": "500.00"` — buy $500 worth). "Use `notional` for fractional-share-like dollar-cost averaging experiences." Do not send both `quantity` and `notional` in the same request.
+
+## Extended Hours Trading
+
+Set `extended_hours: true` to allow execution during pre-market (4:00 AM–9:30 AM ET) and after-market (4:00 PM–8:00 PM ET) sessions. Extended hours trading is only supported for `limit` orders with `time_in_force: day`.
+
+```json
+{ "symbol": "AAPL", "asset_class": "equity", "order_type": "limit", "side": "buy", "quantity": "5", "limit_price": "180.00", "time_in_force": "day", "extended_hours": true }
 ```
 
-## When to use idempotency keys
+## Order Lifecycle
 
-| Operation | Required | Why |
-|---|---|---|
-| Deposits | Yes | Prevent duplicate fund transfers |
-| Withdrawals | Yes | Prevent duplicate disbursements |
-| Orders | Recommended | Prevent duplicate trades (you can also use `client_order_id` as an alternative) |
-| Account creation | Optional | Account uniqueness is enforced by other means |
-| Read operations (GET) | Not needed | `GET` requests are naturally idempotent |
+Orders transition through these states: `pending_new` → `new` → `partially_filled` → `filled`. Terminal/branch states include `canceled`, `cancel_pending`, `rejected`, and `expired`.
 
-## Generating keys
+| State | Description |
+|-------|-------------|
+| `pending_new` | Order received by TAPP Engine; being submitted to the market |
+| `new` | Order accepted by the exchange/market |
+| `partially_filled` | Some shares filled; remainder still working |
+| `filled` | Order is fully executed |
+| `canceled` | Order was cancelled (by you or by the exchange) |
+| `cancel_pending` | Cancel request submitted, awaiting confirmation |
+| `rejected` | Order was rejected (e.g., insufficient funds, invalid symbol) |
+| `expired` | Day order reached end of session unfilled, or IOC/FOK not immediately filled |
 
-Use any unique string. Common approaches:
+## Idempotency with `client_order_id`
 
-```javascript
-// Simple UUID
-const key = crypto.randomUUID();
-// e.g. "550e8400-e29b-41d4-a716-446655440000"
+"Always include a `client_order_id` — a unique string you generate — on every order request." If your request times out and you retry, TAPP Engine returns the existing order rather than creating a duplicate. Recommended pattern: `{userId}-{symbol}-{action}-{date}-{sequence}`.
 
-// Prefixed with operation type for readability
-const key = `dep-${crypto.randomUUID()}`;
-// e.g. "dep-550e8400-e29b-41d4-a716-446655440000"
+## Next Steps
 
-// Derived from your business logic (user + operation + timestamp)
-const key = `dep-${userId}-${Date.now()}`;
-// e.g. "dep-usr_abc123-1718459400000"
-```
-
-<Tip>
-Prefix your keys with the operation type (`dep-` for deposits, `wdr-` for withdrawals, `ord-` for orders). This makes logs and debugging significantly easier when you're tracing a transaction across systems.
-</Tip>
-
-## Behavior
-
-Understanding exactly what Buildmarkets does in each scenario helps you build the right retry logic.
-
-| Scenario | Result |
-|---|---|
-| First request with a given key | Processed normally; the response is stored alongside the key |
-| Retry with the same key and the same body | Original response returned immediately — the operation is **not** reprocessed |
-| Retry with the same key but a different body | Error — the key is already associated with a different request body |
-| Different key, same body | Processed as a brand-new request — this **will** create a duplicate operation |
-
-<Warning>
-If you send the same key with a different request body, Buildmarkets returns an error rather than silently processing the new body. Always keep the request body identical across retries of the same operation.
-</Warning>
-
-## Key expiration
-
-Idempotency keys expire after **24 hours**. After expiration, the same key string can be reused for a new, unrelated request. In practice, generate a fresh key for every operation rather than relying on expiration windows.
-
-## Best practices
-
-<CardGroup cols={2}>
-  <Card title="One key per operation" icon="key">
-    Generate a fresh key for each distinct deposit or withdrawal. Never reuse a key from a previous operation, even if the amounts match.
-  </Card>
-  <Card title="Store keys locally" icon="database">
-    Persist the key alongside your internal transaction record. This lets you reproduce the exact retry request for debugging and auditing.
-  </Card>
-  <Card title="Stay consistent on retry" icon="arrows-rotate">
-    Always resend the exact same body with the same key. Any change to the request body will cause Buildmarkets to return an error instead of the cached response.
-  </Card>
-  <Card title="Use descriptive prefixes" icon="tag">
-    Include the operation type in the key prefix (`dep-`, `wdr-`, `ord-`) so you can identify the operation from the key alone in logs.
-  </Card>
-</CardGroup>
+- Placing Orders — Full request schema and code examples for all order types
+- Order Types & Parameters — Deep dive on each order type and when to use it
+- Webhooks Overview — Get notified when orders fill or change state

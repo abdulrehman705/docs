@@ -1,0 +1,36 @@
+---
+title: "Order Cancel Reject <9>"
+sidebarTitle: "Order Cancel Reject <9>"
+description: "How the gateway notifies clients when a cancellation request cannot be processed, and how to handle the rejection."
+---
+
+## Overview
+
+The Order Cancel Reject message (MsgType = `"9"`) is sent by the gateway when a cancellation request cannot be processed. This typically occurs when an order is already filled, expired, or in a non-cancellable state.
+
+## Field Layout
+
+| Tag | Field | Description | Required | Type | Values |
+|-----|-------|-------------|----------|------|--------|
+| 11 | ClOrdID | Identifier of the cancel request | Y | String | |
+| 17 | ExecId | Execution ID assigned by the gateway | Y | String | |
+| 37 | OrderId | OrderId assigned by the gateway | Y | String | |
+| 39 | OrdStatus | Current order status | Y | Char | `8`=Rejected |
+| 41 | OrigClOrdID | ClOrdID of the order that could not be cancelled | Y | String | |
+| 58 | Text | Reason for rejection (free text) | N | String | |
+| 434 | CxlRejResponseTo | Type of request being rejected | Y | Int | `1`=Order Cancel Request |
+
+## Example Message
+```
+8=FIX.4.4|35=9|49=TAPPENGINE|56=CLIENT1|11=CXL-20260212-001|17=EXEC-020|37=TAPP-78450|39=8|41=ORD-20260212-001|434=1|58=Order already filled|10=056|
+```
+
+## Handling Cancel Rejects
+
+1. Review Tag 58 (Text) for the human-readable rejection reason
+2. The original order maintains its current state — use Order Status Request to verify if needed
+3. Common rejection causes: order already filled, order already cancelled, order expired, or invalid OrderId
+
+## REST Equivalent
+
+The REST cancel endpoint (`POST /api/external/cancel`) provides similar functionality, returning error details when cancellation fails.

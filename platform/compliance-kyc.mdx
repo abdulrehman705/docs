@@ -1,137 +1,293 @@
 ---
-title: "Compliance & KYC: Identity Verification for Accounts"
+title: "Compliance & KYC"
 sidebarTitle: "Compliance & KYC"
-description: "Complete KYC before trading on Buildmarkets. Upload identity documents, track verification status, handle rejections, and monitor compliance workflow statuses."
+description: "Account opening KYC fields, disclosures, agreements, and the identity-document upload flow for TAPP Engine brokerage accounts."
 ---
 
-Every investment account must complete Know Your Customer (KYC) verification before it can place trades. Buildmarkets handles the compliance pipeline — your job is to collect the right documents from your users and submit them through the API. Buildmarkets then verifies the documents against the account's identity information and updates the account status accordingly.
+## Endpoint
 
-## How KYC Works
-
-KYC verification follows a simple document-upload-and-review flow:
-
-```text
-Upload Documents → Processing → Approved / Rejected
-                       │
-                  (auto-approved
-                   in sandbox)
+```
+POST /v1/accounts
 ```
 
-<Steps>
-  <Step title="Create an account">
-    Submit the account with full identity and contact information. See [Accounts](/platform/accounts) for required fields.
-  </Step>
-  <Step title="Upload identity documents">
-    Upload a government-issued photo ID and any other required documents using the `/documents` endpoint.
-  </Step>
-  <Step title="Buildmarkets verifies the documents">
-    Buildmarkets matches the documents against the account's identity information. In sandbox, documents are auto-approved instantly.
-  </Step>
-  <Step title="Account is approved or rejected">
-    The document status updates to `approved` or `rejected`. On approval, the account becomes eligible to trade.
-  </Step>
-</Steps>
+## Required Fields
 
-<Info>
-  In **sandbox**, documents are auto-approved immediately after upload — no manual review required. In **production**, verification typically completes within minutes but can take up to 24 hours for cases that require manual review.
-</Info>
+The minimum required fields to create an account are: `contact` (email, address, city, state, postal code); `identity` (first name, last name, date of birth, SSN/tax ID); `investment_profile` (risk tolerance, investment objective, income and net worth ranges). All other fields are optional but may be required for specific account types or trading features.
 
-## Document Types
+## Full Request Schema
 
-| Type | Description | Required |
-|---|---|---|
-| `id_verification` | Government-issued photo ID: passport, driver's license, or national ID | Yes |
-| `proof_of_address` | Utility bill, bank statement, or tax document showing the user's current address | Situational |
-| `w9_form` | W-9 tax form | Situational |
+### `contact` object
 
-## Upload a Document
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `email_address` | string | ✅ | Primary email address |
+| `phone_number` | string | | Phone with country code (e.g. `+15125550100`) |
+| `street_address` | string[] | | Street address lines |
+| `unit` | string | | Apartment, suite, or unit number |
+| `city` | string | ✅ | City |
+| `state` | string | ✅ | 2-letter state code (e.g. `TX`) |
+| `postal_code` | string | ✅ | ZIP code (5 or 9 digits) |
+| `country` | string | | ISO 2-letter country code. Defaults to `US` |
 
-Submit documents as `multipart/form-data`. Each upload links the document to an investor account:
+### `identity` object
 
-```bash
-curl -X POST "$BASE_URL/documents" \
-  -H "Authorization: Basic $AUTH" \
-  -F "account_id=$INVESTOR_ID" \
-  -F "purpose=kyc" \
-  -F "document_type=id_verification" \
-  -F "file=@/path/to/drivers-license.jpg"
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `given_name` | string | ✅ | Legal first name |
+| `middle_name` | string | | Middle name or initial |
+| `family_name` | string | ✅ | Legal last name |
+| `date_of_birth` | string | ✅ | Date of birth in `YYYY-MM-DD` format |
+| `tax_id` | string | ✅ | SSN (US residents) or EIN. 9–11 characters, dashes optional. |
+| `tax_id_type` | string | | Defaults to `US_SSN`. Other values: `US_EIN` |
+| `country_of_citizenship` | string | | ISO country code. Defaults to `US` |
+| `country_of_birth` | string | | ISO country code of birth country |
+| `country_of_tax_residence` | string | | ISO country code for tax residence. Defaults to `US` |
+| `funding_source` | string[] | | Sources of investment funds (e.g. `["employment_income"]`) |
+
+### `disclosures` object
+
+Regulatory disclosures required by FINRA. All fields default to `false` if omitted: `is_control_person`, `control_person_company_name`, `is_affiliated_exchange_or_finra`, `is_spouse_affiliated_finra`, `is_politically_exposed`, `immediate_family_exposed`.
+
+### `agreements` array
+
+Each agreement must be captured with a timestamp and optionally IP address. The `customer_agreement` is required for all accounts; `margin_agreement` is required if `margin_enabled = true`; `options_agreement` is required if `options_level > 0`.
+
+```json
+"agreements": [ { "agreement": "customer_agreement", "signed_at": "2025-06-01T12:00:00Z", "ip_address": "203.0.113.42" } ]
 ```
 
-<Note>
-  - `account_id` attaches the document to the specified investor account. Omit it to attach the document to the tenant instead. Use `user_id` to attach the document to a dashboard user.
-  - **Supported formats:** JPEG, PNG, PDF
-  - **Maximum file size:** 10 MB
-</Note>
+### `investment_profile` object
 
-## Document Statuses
+Required: `risk_tolerance` (`conservative`/`moderate`/`aggressive`), `investment_objective` (`growth`/`income`/`speculation`/`capital_preservation`/`other`), `annual_income_range`, `net_worth_range`, `liquid_net_worth_range`. Optional: `liquidity_needs`, `time_horizon` (`short`/`average`/`long`), `years_trading_stocks`, `years_trading_options`, `stock_experience`, `options_experience`, `income_source`, `funds_source`, `investment_plan`.
 
-After upload, poll the document endpoint or listen for webhooks to track verification progress:
+### `trading_configurations` object (optional)
 
-| Status | Meaning |
-|---|---|
-| `processing` | Document has been uploaded and verification is in progress |
-| `approved` | Verification was successful |
-| `rejected` | Verification failed — prompt the user to upload a new document |
+`options_level` (0=none, 1=covered calls, 2=spreads, 3=full); `margin_enabled` (requires `margin_agreement`).
 
-## Checking Document Status
+### Other optional top-level fields
 
-You have two options for tracking verification: polling or webhooks.
+`account_type` (`individual` default or `joint`), `trusted_contact`, `employment`, `mailing_address`, `joint_owner` (required when `account_type` is `joint`), `dividend_reinvestment`, `discretionary_account`, `registered_rep_code`, `advisor_code`, `corr_metadata` (freeform, up to 255 chars).
 
-<Tabs>
-  <Tab title="Polling">
-    ```bash
-    # Get a specific document by ID
-    curl -X GET "$BASE_URL/documents/{document_id}" \
-      -H "Authorization: Basic $AUTH"
+## Complete Example Request
 
-    # List all approved documents
-    curl -X GET "$BASE_URL/documents?status=approved" \
-      -H "Authorization: Basic $AUTH"
-    ```
-  </Tab>
-  <Tab title="Webhooks (recommended)">
-    Subscribe to document verification events to receive real-time notifications when verification completes, without polling. See [Webhooks](/platform/webhooks) for event types and setup instructions.
-  </Tab>
-</Tabs>
+```json
+{
+  "account_type": "individual",
+  "contact": { "email_address": "jane@example.com", "phone_number": "+15125550100", "street_address": ["123 Main Street"], "city": "Austin", "state": "TX", "postal_code": "78701", "country": "US" },
+  "identity": { "given_name": "Jane", "middle_name": "M", "family_name": "Doe", "date_of_birth": "1990-04-15", "tax_id": "111-22-0001", "tax_id_type": "US_SSN", "country_of_citizenship": "US", "funding_source": ["employment_income"] },
+  "disclosures": { "is_control_person": false, "is_affiliated_exchange_or_finra": false, "is_politically_exposed": false, "immediate_family_exposed": false },
+  "agreements": [ { "agreement": "customer_agreement", "signed_at": "2025-06-01T12:00:00Z", "ip_address": "203.0.113.42" } ],
+  "investment_profile": { "risk_tolerance": "moderate", "investment_objective": "growth", "annual_income_range": "50000_to_100000", "net_worth_range": "100000_to_250000", "liquid_net_worth_range": "50000_to_100000", "time_horizon": "long" },
+  "trading_configurations": { "options_level": 0, "margin_enabled": false },
+  "dividend_reinvestment": true,
+  "corr_metadata": "internal-user-id-98765"
+}
+```
 
-<Tip>
-  Use webhooks rather than polling in production. Webhooks reduce latency and eliminate unnecessary API calls during the verification window.
-</Tip>
+## Response
 
-## Handling Rejections
+On success, returns `201 Created` with the full `AccountResponse` object including the generated `id` and initial `status`.
 
-When a document is rejected, the API response includes a reason code. Display a clear message to your user and prompt them to re-upload. There is no limit on upload attempts.
+```json
+{
+  "id": "b3f2c9a1-4d5e-4a2f-8b3c-1e2d3f4a5b6c",
+  "account_number": "ACC123456789",
+  "status": "SUBMITTED",
+  "kyc_status": "SUBMITTED",
+  "currency": "USD",
+  "last_equity": "0.00",
+  "created_at": "2025-06-01T12:00:05Z",
+  "account_type": "individual",
+  "enabled_assets": ["equity"]
+}
+```
 
-| Rejection reason | Resolution |
-|---|---|
-| Document is blurry or illegible | Ask the user to re-upload using a higher-quality image or scan |
-| Document is expired | The user must upload a current, non-expired document |
-| Name mismatch | Verify that the name on the document exactly matches the `first_name` and `last_name` on the account |
-| Document type not accepted | Use a supported government-issued photo ID (passport, driver's license, or national ID) |
+> **Note:** Newly created accounts start in `SUBMITTED` status. In the sandbox with SSN suffix `0001`, KYC completes rapidly and transitions to `ACTIVE`. In production, KYC processing typically completes in seconds to minutes, but some accounts require manual review.
 
-## Compliance Workflow Statuses
+## Handling KYC Outcomes
 
-For more complex compliance scenarios, Buildmarkets uses a multi-step compliance workflow that runs alongside document verification. Monitor these statuses for accounts that require additional review:
+Use Webhooks to receive real-time notifications when an account's `status` or `kyc_status` changes. Subscribe to the `account.updated` event and check the new status in the payload. Alternatively, poll `GET /v1/accounts/{accountId}` and check `kyc_status` until it reaches `APPROVED` or `REJECTED`.
 
-| Status | Meaning |
-|---|---|
-| `IN_PROGRESS` | Compliance checks are currently running |
-| `PENDING_REVIEW` | One or more checks require manual review by Buildmarkets' compliance team |
-| `APPROVED` | All compliance checks have passed |
-| `REJECTED` | One or more checks failed — contact Buildmarkets support for next steps |
-| `SUSPENDED` | Account compliance has been suspended |
-| `EXPIRED` | The compliance verification window has expired; re-verification is required |
+## Common Validation Errors
 
-<Warning>
-  Accounts in `SUSPENDED` or `REJECTED` compliance status cannot place trades or initiate withdrawals. Surface these states clearly in your UI and provide a path for the user to take corrective action.
-</Warning>
+| Error | Cause |
+|-------|-------|
+| `MISSING_REQUIRED_FIELD: contact.email_address` | Email address omitted from `contact` |
+| `MISSING_REQUIRED_FIELD: identity.tax_id` | SSN omitted from `identity` |
+| `VALIDATION_ERROR: identity.date_of_birth` | Date not in `YYYY-MM-DD` format |
+| `MISSING_REQUIRED_FIELD: agreements` | No agreements array provided |
+| `VALIDATION_ERROR: agreements[0].signed_at` | Timestamp not in ISO 8601 format |
 
-## Key Endpoints
+## Next Steps
+
+- Account Statuses — Full state machine and transitions
+- Balances & Positions — Reading portfolio data after the account is ACTIVE
+- Funding Overview — Link a bank account and make a deposit
+
+---
+
+## Uploading Documents
+
+The document upload endpoint allows you to submit compliance and identity documents directly to a TAPP brokerage account. This is used during account onboarding when a user's KYC (Know Your Customer) review requires supporting documentation, and during ongoing account maintenance for remediation requests or regulatory requirements.
+
+Uploaded documents are associated with the specified account and routed to the appropriate compliance workflow.
+
+---
+
+### Endpoint
 
 | Method | Path | Description |
-|---|---|---|
-| `POST` | `/documents` | Upload a document (multipart/form-data) |
-| `GET` | `/documents` | List documents — filter by `account_id`, `user_id`, `purpose`, or `status` |
-| `GET` | `/documents/{document_id}` | Get details for a specific document |
-| `GET` | `/documents/{document_id}/download` | Download the raw document bytes |
-| `DELETE` | `/documents/{document_id}` | Delete a document |
+|--------|------|-------------|
+| `POST` | `/v1/accounts/{accountId}/documents/upload` | Upload a compliance document to an account |
+
+---
+
+### Upload a document
+
+Accepts a Base64-encoded file along with its document type classification. The platform processes the upload and associates it with the account for compliance review.
+
+#### `POST /v1/accounts/{accountId}/documents/upload`
+
+##### Path parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `accountId` | string (UUID) | ✅ | The TAPP account to attach the document to |
+
+##### Request body
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `document_type` | string | ✅ | Classification of the document. See supported types below |
+| `document_sub_type` | string | ❌ | Free-form sub-classification (e.g., `"passport"`, `"drivers_license"`, `"utility_bill"`) |
+| `content` | string | Conditional | Base64-encoded binary content of the document. Required for all types except `w8ben`. Maximum size: 10MB |
+| `content_data` | object | Conditional | JSON form data. Used **only** for `w8ben` document type in place of `content` |
+| `mime_type` | string | ❌ | MIME type of the uploaded file (e.g., `"image/png"`, `"image/jpeg"`, `"application/pdf"`) |
+
+##### Supported `document_type` values
+
+| Value | Description |
+|-------|-------------|
+| `identity_verification` | Government-issued photo ID (passport, driver's license, national ID) |
+| `address_verification` | Proof of address (utility bill, bank statement, lease) |
+| `date_of_birth_verification` | Document verifying date of birth |
+| `tax_id_verification` | Document verifying Social Security Number or ITIN |
+| `account_approval_letter` | Approval letter for account opening |
+| `cip_result` | Customer Identification Program result document |
+| `w8ben` | IRS Form W-8BEN (Certificate of Foreign Status) — submitted as `content_data` JSON, not Base64 |
+| `w9` | IRS Form W-9 (Request for Taxpayer Identification) |
+| `company_formation` | Certificate of incorporation or equivalent |
+| `entity_operating_document` | Operating agreement or bylaws (for entity accounts) |
+| `entity_registration` | State registration filing |
+| `hio_declaration_form` | Household/Immediate Office declaration form |
+| `limited_trading_authorization` | Authorization for a third party to trade on the account |
+| `pep_declaration_form` | Politically Exposed Person declaration |
+
+##### Response
+
+Returns `204 No Content` on success. No body is returned.
+
+---
+
+### Example requests
+
+#### Identity verification — passport (image)
+
+```bash
+# First, Base64-encode your file
+ENCODED=$(base64 -i passport_scan.png)
+
+curl -X POST https://api.tappengine.com/v1/accounts/b3d9f1a2-4c7e-4f0b-9e2d-1a2b3c4d5e6f/documents/upload \
+  -H "Authorization: Bearer $TAPP_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d "{
+    \"document_type\": \"identity_verification\",
+    \"document_sub_type\": \"passport\",
+    \"content\": \"$ENCODED\",
+    \"mime_type\": \"image/png\"
+  }"
+```
+
+#### Address verification — utility bill (PDF)
+
+```bash
+ENCODED=$(base64 -i utility_bill.pdf)
+
+curl -X POST https://api.tappengine.com/v1/accounts/b3d9f1a2-4c7e-4f0b-9e2d-1a2b3c4d5e6f/documents/upload \
+  -H "Authorization: Bearer $TAPP_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d "{
+    \"document_type\": \"address_verification\",
+    \"document_sub_type\": \"utility_bill\",
+    \"content\": \"$ENCODED\",
+    \"mime_type\": \"application/pdf\"
+  }"
+```
+
+#### W-8BEN — JSON form data
+
+The `w8ben` document type accepts form data as a JSON object in `content_data` rather than a Base64-encoded file. The structure mirrors the IRS W-8BEN form fields.
+
+```bash
+curl -X POST https://api.tappengine.com/v1/accounts/b3d9f1a2-4c7e-4f0b-9e2d-1a2b3c4d5e6f/documents/upload \
+  -H "Authorization: Bearer $TAPP_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "document_type": "w8ben",
+    "content_data": {
+      "name": "Maria García",
+      "country_of_citizenship": "Mexico",
+      "permanent_address": "123 Calle Principal, Ciudad de México, MX 06600",
+      "mailing_address": "123 Calle Principal, Ciudad de México, MX 06600",
+      "date_of_birth": "1985-04-12",
+      "foreign_tax_id": "GARM850412XXX",
+      "treaty_country": "Mexico",
+      "treaty_article": "10",
+      "withholding_rate": "10",
+      "income_type": "Dividends",
+      "signature_date": "2026-03-24"
+    }
+  }'
+```
+
+#### Response
+
+```
+HTTP/1.1 204 No Content
+```
+
+---
+
+### File size and format limits
+
+| Constraint | Limit |
+|-----------|-------|
+| Maximum file size | 10MB per upload |
+| Supported image types | `image/png`, `image/jpeg`, `image/gif`, `image/webp` |
+| Supported document types | `application/pdf` |
+| Encoding | Base64 (standard encoding, no line breaks required) |
+
+> **Tip:** If you're encoding in JavaScript, use `Buffer.from(fileBuffer).toString('base64')`. In Python, use `base64.b64encode(file_bytes).decode('utf-8')`.
+
+---
+
+### Common errors
+
+| HTTP Status | Error | Cause |
+|-----------|-------|-------|
+| `400` | `INVALID_DOCUMENT_TYPE` | `document_type` is not one of the supported values |
+| `400` | `CONTENT_REQUIRED` | `content` is missing for a non-`w8ben` document type |
+| `400` | `CONTENT_DATA_REQUIRED` | `content_data` is missing for the `w8ben` document type |
+| `400` | `FILE_TOO_LARGE` | Decoded file exceeds the 10MB size limit |
+| `400` | `INVALID_MIME_TYPE` | The `mime_type` is not supported |
+| `404` | `ACCOUNT_NOT_FOUND` | No account found for the provided `accountId` |
+
+---
+
+### Next steps
+
+* [W-9 Requests →](/guides/self-directed/kyc-verification) — Generate W-9 forms programmatically for a user
+* [Retrieving Documents →](/documents/retrieving-documents) — Access documents that have been generated for an account
+* [Account Opening →](/guides/self-directed/account-onboarding) — Review the KYC fields collected at account creation
+
+Updated 3 months ago

@@ -1,0 +1,51 @@
+---
+title: "FIX Gateway Overview"
+sidebarTitle: "Overview"
+description: "TAPP Engine's Client FIX Gateway implements FIX 4.4 for institutional-grade, low-latency order management and routing."
+---
+
+## Introduction
+
+TAPP Engine's Client FIX Gateway implements FIX 4.4 protocol specifically for order management. The system delivers institutional-grade, low-latency order routing for partners preferring direct FIX connectivity alongside (or instead of) REST API integration. "FIX 4.4 — only the tags and messages documented in this section are supported."
+
+## FIX vs REST Comparison
+
+| Factor | FIX Gateway | REST API |
+|--------|-------------|----------|
+| Connection | Persistent TCP session | HTTPS request/response |
+| Latency | Lower (no HTTP overhead) | Standard HTTP |
+| Management | Logon/Logout, heartbeats, sequencing | Bearer JWT + RSA signing |
+| Order types | Equities, single/multi-leg options | Equities, single/multi-leg options |
+| Best use | High-volume institutional flow, OMS/EMS | Partner portals, robo-advisory, mobile |
+| Dollar/fractional | Supported (Market orders only) | Supported |
+| Multileg | Native via MsgType="AB" | Via `/api/Order/CreateMultiLegOrder` |
+
+## Setup Requirements
+
+Connectivity requires: **Host & Port** (assigned during onboarding); **SenderCompID** (your identifier, Tag 49); **TargetCompID** (TAPP Engine's gateway identifier, Tag 56); **Heartbeat interval** (30 seconds recommended, Tag 108). Contact TAPP Engine support for FIX connectivity setup.
+
+## Outbound Messages
+
+| Message | MsgType | Purpose |
+|---------|---------|---------|
+| New Order Single | D | Create equity or single-leg option orders |
+| New Order Multileg | AB | Create multi-leg orders (spreads, condors, straddles) |
+| Order Cancel Request | F | Cancel open orders |
+| Order Status Request | H | Request current order status |
+
+## Inbound Messages
+
+| Message | MsgType | Purpose |
+|---------|---------|---------|
+| Execution Report | 8 | Order acknowledgement, fills, cancellations, rejections |
+| Order Cancel Reject | 9 | Cancel request rejection |
+| Business Message Reject | j | Application-level message rejection |
+
+## Quick Start Process
+
+1. Establish TCP connection to assigned host and port
+2. Send Logon message (MsgType="A") with EncryptMethod=0 and HeartBtInt=60
+3. Await gateway Logon acknowledgement
+4. Send orders using MsgType="D" (single) or MsgType="AB" (multi-leg)
+5. Process Execution Reports (MsgType="8") for fills, updates, and rejections
+6. At session end, send Logout (MsgType="5") and await acknowledgement before closing

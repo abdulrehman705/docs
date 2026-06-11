@@ -1,139 +1,127 @@
 ---
-title: "Authenticating Buildmarkets API Requests with HTTP Basic Auth"
+title: "Authentication"
 sidebarTitle: "Authentication"
-description: "Authenticate every Buildmarkets API request using HTTP Basic Auth. Learn how to encode credentials, set required headers, and follow security best practices."
+description: "How TAPP Engine API key authentication works, including generating, listing, and revoking scoped key pairs and security best practices."
 ---
 
-Every request to the Buildmarkets API must include your credentials in the `Authorization` header using HTTP Basic Authentication. Your **API Key** acts as the username and your **API Secret** acts as the password — you receive a separate key pair for sandbox and production.
+The TAPP Engine API uses **API key authentication**. Every request must include a valid key pair. This page explains how authentication works, how to generate and manage keys, and security best practices.
 
-## How It Works
+## How authentication works
 
-HTTP Basic Auth encodes your credentials as a Base64 string and sends them with every request. Follow these three steps to build the header value:
+Every TAPP Engine API request requires two HTTP headers:
 
-<Steps>
-  <Step title="Concatenate your credentials">
-    Join your API Key and API Secret with a colon separator:
-
-    ```text
-    API_KEY:API_SECRET
-    ```
-  </Step>
-  <Step title="Base64-encode the result">
-    Encode the concatenated string using standard Base64:
-
-    ```bash
-    echo -n 'YOUR_API_KEY:YOUR_API_SECRET' | base64
-    ```
-  </Step>
-  <Step title="Send the Authorization header">
-    Prefix the encoded value with `Basic ` and include it in every request:
-
-    ```text
-    Authorization: Basic <base64_encoded_value>
-    ```
-  </Step>
-</Steps>
-
-## Code Examples
-
-<CodeGroup>
-
-```bash cURL
-curl -X GET 'https://test-service.bluumfinance.com/v1/assets' \
-  -H 'Authorization: Basic '$(echo -n 'YOUR_API_KEY:YOUR_API_SECRET' | base64)
+```
+X-API-Key: <your-api-key>
+X-API-Secret: <your-api-secret>
 ```
 
-```javascript Node.js
-const axios = require('axios');
+Both values are required on every request. There is no session token or cookie mechanism — each request is independently authenticated.
 
-const API_KEY = process.env.BLUUM_API_KEY;
-const API_SECRET = process.env.BLUUM_API_SECRET;
+**Example request:**
 
-const credentials = Buffer.from(`${API_KEY}:${API_SECRET}`).toString('base64');
-
-const response = await axios.get('https://test-service.bluumfinance.com/v1/assets', {
-  headers: {
-    Authorization: `Basic ${credentials}`,
-    'Content-Type': 'application/json',
-  },
-});
-
-console.log(response.data);
+```bash
+curl https://dev-tapp-api.tappengine.com/v1/accounts \
+  -H "X-API-Key: tapp_key_abc123" \
+  -H "X-API-Secret: tapp_secret_xyz789"
 ```
 
-```python Python
-import base64
-import os
-import requests
+## API key scopes
 
-api_key = os.environ['BLUUM_API_KEY']
-api_secret = os.environ['BLUUM_API_SECRET']
+When generating an API key, you assign it one or more **scopes** that control which endpoints it can access. This follows the principle of least privilege.
 
-credentials = base64.b64encode(f'{api_key}:{api_secret}'.encode()).decode()
+| Scope | Access granted |
+|-------|----------------|
+| `accounts:read` | Read account details, balances, positions |
+| `accounts:write` | Create, update, and close accounts |
+| `funding:read` | Read ACH relationships and funding activity |
+| `funding:write` | Create ACH relationships, initiate deposits and withdrawals |
+| `trading:read` | Read orders and executions |
+| `trading:write` | Place, modify, and cancel orders |
+| `marketdata:read` | Access market data endpoints |
+| `documents:read` | List and retrieve documents |
+| `documents:write` | Upload and email documents |
+| `webhooks:read` | List webhook configurations |
+| `webhooks:write` | Create, update, and delete webhooks |
+| `keys:manage` | Generate and revoke API keys |
 
-response = requests.get(
-    'https://test-service.bluumfinance.com/v1/assets',
-    headers={
-        'Authorization': f'Basic {credentials}',
-        'Content-Type': 'application/json',
-    }
-)
+> **Important:** "Assign only the scopes your application needs. A compromised key with narrow scopes limits your exposure."
 
-print(response.json())
+## Generating API keys
+
+### Via the Partner Dashboard
+
+Log into the TAPP Engine Partner Dashboard, navigate to **Settings → API Keys**, and click **+ Generate Key**. Give the key a descriptive label (e.g., `"production-backend"` or `"sandbox-frontend"`) and select the required scopes.
+
+### Via the API
+
+You can also generate keys programmatically using an existing key that has the `keys:manage` scope:
+
+```bash
+curl -X POST https://dev-tapp-api.tappengine.com/v1/keys \
+  -H "X-API-Key: YOUR_EXISTING_KEY" \
+  -H "X-API-Secret: YOUR_EXISTING_SECRET" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "label": "backend-service-prod",
+    "scopes": ["accounts:read", "trading:write", "marketdata:read"]
+  }'
 ```
 
-</CodeGroup>
+**Response:**
 
-## Required Headers
+```json
+{
+  "id": "key-001",
+  "label": "backend-service-prod",
+  "api_key": "tapp_key_abc123",
+  "api_secret": "tapp_secret_xyz789",
+  "scopes": ["accounts:read", "trading:write", "marketdata:read"],
+  "created_at": "2025-06-01T12:00:00Z"
+}
+```
 
-Use the following headers on every request, depending on the type of operation:
+> **Security note:** "The `api_secret` is only returned once at creation time. Store it immediately in a secrets manager (e.g., AWS Secrets Manager, HashiCorp Vault). It cannot be retrieved again — if lost, revoke the key and generate a new one."
 
-<ParamField header="Authorization" type="string" required>
-  Your Base64-encoded credentials in the form `Basic <base64(API_KEY:API_SECRET)>`. Required on every request.
-</ParamField>
+## Listing API keys
 
-<ParamField header="Content-Type" type="string">
-  Required on `POST` and `PUT` requests. Use `application/json` for JSON payloads and `multipart/form-data` for file uploads (e.g., KYC document uploads).
-</ParamField>
+Retrieve all keys associated with your partner account:
 
-<ParamField header="Idempotency-Key" type="string">
-  Required on deposit and withdrawal requests. Supply a unique string per logical operation so that retried requests return the original response instead of creating a duplicate transfer. See [Idempotency](/platform/idempotency) for details.
-</ParamField>
+```bash
+curl https://dev-tapp-api.tappengine.com/v1/keys \
+  -H "X-API-Key: YOUR_API_KEY" \
+  -H "X-API-Secret: YOUR_API_SECRET"
+```
 
-## Credentials by Environment
+The response lists key metadata (ID, label, scopes, creation date) but **never** includes the secret value.
 
-You receive separate credentials for the sandbox and production environments. Never use production credentials in sandbox, or vice versa.
+## Revoking API keys
 
-| Environment | Base URL | How to obtain |
-|---|---|---|
-| **Sandbox** | `https://test-service.bluumfinance.com/v1` | Dashboard → Settings → API Keys |
-| **Production** | `https://service.bluumfinance.com/v1` | Issued after compliance approval |
+Revoke a key that is no longer needed or may be compromised:
 
-<Warning>
-  Your API Secret is displayed **only once** at the time of creation. Copy it immediately and store it in a secret manager. If you lose it, you must generate a new key pair — Buildmarkets cannot recover a lost secret.
-</Warning>
+```bash
+curl -X DELETE https://dev-tapp-api.tappengine.com/v1/keys/{keyId} \
+  -H "X-API-Key: YOUR_API_KEY" \
+  -H "X-API-Secret: YOUR_API_SECRET"
+```
 
-## Security Best Practices
+Returns `204 No Content` on success. Revoked keys are immediately invalidated — any in-flight requests using the revoked key will fail with `401 Unauthorized`.
 
-Follow these guidelines to keep your credentials secure:
+## Security best practices
 
-- **Use a secret manager** — Store credentials in AWS Secrets Manager, HashiCorp Vault, or Doppler. Never hard-code them in source files or commit them to version control.
-- **Rotate keys every 90 days** — Regularly cycling credentials limits the blast radius of a compromised key.
-- **Scope access to service accounts** — Assign credentials to dedicated service accounts rather than individual developer accounts.
-- **Use environment variables** — Read `BLUUM_API_KEY` and `BLUUM_API_SECRET` from the environment to switch between sandbox and production without code changes.
-- **Never log credentials** — Ensure your logging pipeline strips the `Authorization` header from request logs.
+| Practice | Guidance |
+|----------|----------|
+| **Never expose keys client-side** | API keys should only be used in server-side code. Never include them in mobile app bundles, browser JavaScript, or public repositories. |
+| **Use separate keys per environment** | Use distinct key pairs for sandbox and production. |
+| **Rotate keys regularly** | Generate a new key, update your application config, then revoke the old key. |
+| **Scope keys minimally** | Only request the scopes your specific service requires. |
+| **Store secrets securely** | Use a secrets manager, not environment variable files checked into source control. |
+| **Monitor for anomalies** | Review your API key usage in the Partner Dashboard. Alert on unexpected spikes. |
 
-## Common Authentication Errors
+## Error responses
 
-If a request returns an HTTP `401`, check the error code in the response body:
+| HTTP status | Meaning |
+|-------------|---------|
+| `401 Unauthorized` | Missing, invalid, or revoked API key/secret |
+| `403 Forbidden` | Key is valid but lacks the required scope for this endpoint |
 
-| Error Code | Meaning | Resolution |
-|---|---|---|
-| `BLUM-401-001` | Missing `Authorization` header | Include `Authorization: Basic <credentials>` on every request |
-| `BLUM-401-002` | Malformed credentials | Verify that you Base64-encoded the full `API_KEY:API_SECRET` string |
-| `BLUM-401-003` | Invalid API key or secret | Confirm credentials are correct, active, and match the target environment |
-| `BLUM-401-004` | API key inactive | Contact Buildmarkets support to reactivate your key |
-
-<Tip>
-  If you receive `BLUM-401-002`, the most common cause is encoding only the key or only the secret — make sure you encode the **combined** `API_KEY:API_SECRET` string, including the colon.
-</Tip>
+See Error Codes for the full list of API error responses.

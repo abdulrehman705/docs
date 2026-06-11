@@ -1,0 +1,34 @@
+---
+title: "Business Message Reject <j>"
+sidebarTitle: "Business Message Reject <j>"
+description: "How the gateway rejects application-level messages that have valid FIX structure but fail for business reasons."
+---
+
+## Overview
+
+The Business Message Reject message (MsgType = `"j"`) is sent by the gateway when an application-level message cannot be processed. It differs from a Session Reject because the message has valid FIX structure but fails for business reasons.
+
+## Field Layout
+
+| Tag | Field | Description | Required | Type | Values |
+|-----|-------|-------------|----------|------|--------|
+| 11 | ClOrdID | Client's order identifier from the rejected message | Y | String | |
+| 37 | OrderId | OrderId assigned by the gateway | Y | String | |
+| 58 | Text | Human-readable rejection reason | N | String | |
+| 380 | BusinessRejectReason | Rejection reason code | N | String | |
+
+## Example Message
+```
+8=FIX.4.4|35=j|49=TAPPENGINE|56=CLIENT1|11=ORD-20260212-010|37=TAPP-78470|380=5|58=Insufficient buying power for order|10=023|
+```
+
+## Handling Business Rejects
+
+1. Examine Tag 58 (Text) for specific rejection details
+2. Review Tag 380 for coded rejection reasons
+3. The rejected order was **not** created — resolve the issue and resubmit
+4. Common causes: insufficient buying power, disabled options trading, invalid symbols, or unauthorized security types
+
+## REST Equivalent
+
+The REST API responds with HTTP 4xx errors containing JSON error details when order validation fails.

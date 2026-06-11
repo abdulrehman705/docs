@@ -1,137 +1,125 @@
 ---
-title: "Investment Account Onboarding: Step-by-Step API Guide"
+title: "Account Onboarding"
 sidebarTitle: "Account Onboarding"
-description: "Create and activate a self-directed investment account by collecting user data across four groups, submitting the account, and handling validation errors."
+description: "Full field reference and request schema for creating a brokerage account via POST /v1/accounts, including KYC handling and validation errors."
 ---
 
-Opening an investment account requires your user to provide four groups of information — contact details, identity, regulatory disclosures, and signed agreements. This guide shows you how to collect that data across multiple screens and submit it to the Buildmarkets API in a single request.
+## Endpoint
 
-<Note>
-  The examples below reference shell variables `$BASE_URL` and `$AUTH`. Set them once before running any request: `BASE_URL="https://test-service.bluumfinance.com/v1"` and `AUTH=$(echo -n "$API_KEY:$API_SECRET" | base64)`. See the [Quick Start](/get-started/quick-start-self-directed) for the full setup.
-</Note>
-
-## Overview
-
-Account creation requires four data groups:
-
-| # | Group | What it contains |
-|---|-------|-----------------|
-| 1 | **Contact** | Email, phone, mailing address |
-| 2 | **Identity** | Legal name, date of birth, tax ID, citizenship |
-| 3 | **Disclosures** | Regulatory disclosures (control person, political exposure, etc.) |
-| 4 | **Agreements** | Account and customer agreements with timestamps and IP address |
-
-## Choosing an account type
-
-Before building your collection screens, decide which account type you're creating:
-
-| If you're building… | `account_type` | `management_type` |
-|---------------------|---------------|-------------------|
-| Trading app, invest tab, stock gifting | `individual` | `self_directed` |
-| Robo-advisor, financial planner, managed portfolios | `individual` | `advised` |
-
-See [Accounts](/platform/accounts) for full details on account types and lifecycle.
-
-## Collecting data in your UI
-
-You don't need to collect all data on a single screen. Break it across multiple steps to reduce friction and improve completion rates. A common multi-screen pattern:
-
-```text
-Screen 1: Name, email, phone
-Screen 2: Address
-Screen 3: Date of birth, SSN, citizenship, funding source
-Screen 4: Disclosures (yes/no checkboxes)
-Screen 5: Agreement review and signature
+```
+POST /v1/accounts
 ```
 
-Store each screen's data in your application state and submit the full account payload only after the user completes Screen 5.
+## Required Fields
 
-## Creating the account
+The minimum required fields to create an account are: `contact` (email, address, city, state, postal code); `identity` (first name, last name, date of birth, SSN/tax ID); `investment_profile` (risk tolerance, investment objective, income and net worth ranges). All other fields are optional but may be required for specific account types or trading features.
 
-<Steps>
-  <Step title="Collect all four data groups across your screens">
-    Gather contact, identity, disclosures, and agreement data as the user moves through your onboarding flow. Don't submit until all fields are present.
-  </Step>
-  <Step title="Submit the account creation request">
-    Send a single `POST /accounts` request with the complete payload. Buildmarkets validates all fields synchronously and returns an account object on success.
+## Full Request Schema
 
-    ```bash
-    curl -X POST "$BASE_URL/accounts" \
-      -H "Authorization: Basic $AUTH" \
-      -H "Content-Type: application/json" \
-      -d '{
-        "account_type": "individual",
-        "management_type": "self_directed",
-        "contact": {
-          "email_address": "user@example.com",
-          "phone_number": "+14155551234",
-          "street_address": ["456 Oak Avenue"],
-          "city": "San Francisco",
-          "state": "CA",
-          "postal_code": "94102",
-          "country": "US"
-        },
-        "identity": {
-          "first_name": "Jane",
-          "last_name": "Doe",
-          "date_of_birth": "1990-05-15",
-          "tax_id": "987-65-4321",
-          "tax_id_type": "SSN",
-          "country_of_citizenship": "US",
-          "country_of_birth": "US",
-          "country_of_tax_residence": "US",
-          "funding_source": ["employment_income"]
-        },
-        "disclosures": {
-          "is_control_person": false,
-          "is_affiliated_exchange_or_finra": false,
-          "is_politically_exposed": false,
-          "immediate_family_exposed": false
-        },
-        "agreements": [
-          {
-            "agreement": "investor_agreement",
-            "agreed": true,
-            "signed_at": "2025-06-15T10:30:00Z",
-            "ip_address": "203.0.113.42"
-          },
-          {
-            "agreement": "investor_agreement",
-            "agreed": true,
-            "signed_at": "2025-06-15T10:30:00Z",
-            "ip_address": "203.0.113.42"
-          }
-        ]
-      }'
-    ```
+### `contact` object
 
-    <Note>
-      Capture the `ip_address` from the user's actual request headers at the moment they accept the agreements — this is a regulatory requirement.
-    </Note>
-  </Step>
-  <Step title="Handle the response">
-    A successful response returns the new account object including an `id` and `status`. Store the account `id` — you'll use it as `INVESTOR_ID` in subsequent API calls for KYC, bank linking, and orders.
-  </Step>
-</Steps>
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `email_address` | string | ✅ | Primary email address |
+| `phone_number` | string | | Phone with country code (e.g. `+15125550100`) |
+| `street_address` | string[] | | Street address lines |
+| `unit` | string | | Apartment, suite, or unit number |
+| `city` | string | ✅ | City |
+| `state` | string | ✅ | 2-letter state code (e.g. `TX`) |
+| `postal_code` | string | ✅ | ZIP code (5 or 9 digits) |
+| `country` | string | | ISO 2-letter country code. Defaults to `US` |
 
-## Handling validation errors
+### `identity` object
 
-When the request fails, Buildmarkets returns a structured error response. The most common errors are:
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `given_name` | string | ✅ | Legal first name |
+| `middle_name` | string | | Middle name or initial |
+| `family_name` | string | ✅ | Legal last name |
+| `date_of_birth` | string | ✅ | Date of birth in `YYYY-MM-DD` format |
+| `tax_id` | string | ✅ | SSN (US residents) or EIN. 9–11 characters, dashes optional. |
+| `tax_id_type` | string | | Defaults to `US_SSN`. Other values: `US_EIN` |
+| `country_of_citizenship` | string | | ISO country code. Defaults to `US` |
+| `country_of_birth` | string | | ISO country code of birth country |
+| `country_of_tax_residence` | string | | ISO country code for tax residence. Defaults to `US` |
+| `funding_source` | string[] | | Sources of investment funds (e.g. `["employment_income"]`) |
 
-| Error code | Description | How to fix |
-|-----------|-------------|-----------|
-| `BLUM-400-002` Missing field | A required field was omitted | Check your request body against the [Accounts](/platform/accounts) schema |
-| `BLUM-400-003` Invalid format | A field has the wrong data format | Phone: E.164 (`+1...`), dates: `YYYY-MM-DD`, country: ISO alpha-2 |
-| `BLUM-409-001` Duplicate | An account with the same email already exists | Check for an existing account before creating a new one |
+### `disclosures` object
 
-<Tip>
-  Validate phone numbers into E.164 format and dates into `YYYY-MM-DD` format on the client before submitting — this eliminates the most common format errors before they ever reach the API.
-</Tip>
+Regulatory disclosures required by FINRA. All fields default to `false` if omitted: `is_control_person`, `control_person_company_name`, `is_affiliated_exchange_or_finra`, `is_spouse_affiliated_finra`, `is_politically_exposed`, `immediate_family_exposed`.
 
-## After account creation
+### `agreements` array
 
-Once the account status is `ACTIVE`, complete the remaining onboarding steps:
+Each agreement must be captured with a timestamp and optionally IP address. The `customer_agreement` is required for all accounts; `margin_agreement` is required if `margin_enabled = true`; `options_agreement` is required if `options_level > 0`.
 
-1. **Upload KYC documents** — The user must verify their identity before trading. See [KYC Verification](/guides/self-directed/kyc-verification).
-2. **Link a bank account** — Connect a bank account to enable deposits and withdrawals. See [Bank Linking](/guides/self-directed/bank-linking).
-3. **Fund the account** — Deposit funds before the user can place orders. See [Deposits & Withdrawals](/guides/self-directed/deposits-withdrawals).
+```json
+"agreements": [ { "agreement": "customer_agreement", "signed_at": "2025-06-01T12:00:00Z", "ip_address": "203.0.113.42" } ]
+```
+
+### `investment_profile` object
+
+Required: `risk_tolerance` (`conservative`/`moderate`/`aggressive`), `investment_objective` (`growth`/`income`/`speculation`/`capital_preservation`/`other`), `annual_income_range`, `net_worth_range`, `liquid_net_worth_range`. Optional: `liquidity_needs`, `time_horizon` (`short`/`average`/`long`), `years_trading_stocks`, `years_trading_options`, `stock_experience`, `options_experience`, `income_source`, `funds_source`, `investment_plan`.
+
+### `trading_configurations` object (optional)
+
+`options_level` (0=none, 1=covered calls, 2=spreads, 3=full); `margin_enabled` (requires `margin_agreement`).
+
+### Other optional top-level fields
+
+`account_type` (`individual` default or `joint`), `trusted_contact`, `employment`, `mailing_address`, `joint_owner` (required when `account_type` is `joint`), `dividend_reinvestment`, `discretionary_account`, `registered_rep_code`, `advisor_code`, `corr_metadata` (freeform, up to 255 chars).
+
+## Complete Example Request
+
+```json
+{
+  "account_type": "individual",
+  "contact": { "email_address": "jane@example.com", "phone_number": "+15125550100", "street_address": ["123 Main Street"], "city": "Austin", "state": "TX", "postal_code": "78701", "country": "US" },
+  "identity": { "given_name": "Jane", "middle_name": "M", "family_name": "Doe", "date_of_birth": "1990-04-15", "tax_id": "111-22-0001", "tax_id_type": "US_SSN", "country_of_citizenship": "US", "funding_source": ["employment_income"] },
+  "disclosures": { "is_control_person": false, "is_affiliated_exchange_or_finra": false, "is_politically_exposed": false, "immediate_family_exposed": false },
+  "agreements": [ { "agreement": "customer_agreement", "signed_at": "2025-06-01T12:00:00Z", "ip_address": "203.0.113.42" } ],
+  "investment_profile": { "risk_tolerance": "moderate", "investment_objective": "growth", "annual_income_range": "50000_to_100000", "net_worth_range": "100000_to_250000", "liquid_net_worth_range": "50000_to_100000", "time_horizon": "long" },
+  "trading_configurations": { "options_level": 0, "margin_enabled": false },
+  "dividend_reinvestment": true,
+  "corr_metadata": "internal-user-id-98765"
+}
+```
+
+## Response
+
+On success, returns `201 Created` with the full `AccountResponse` object including the generated `id` and initial `status`.
+
+```json
+{
+  "id": "b3f2c9a1-4d5e-4a2f-8b3c-1e2d3f4a5b6c",
+  "account_number": "ACC123456789",
+  "status": "SUBMITTED",
+  "kyc_status": "SUBMITTED",
+  "currency": "USD",
+  "last_equity": "0.00",
+  "created_at": "2025-06-01T12:00:05Z",
+  "account_type": "individual",
+  "enabled_assets": ["equity"]
+}
+```
+
+> **Note:** Newly created accounts start in `SUBMITTED` status. In the sandbox with SSN suffix `0001`, KYC completes rapidly and transitions to `ACTIVE`. In production, KYC processing typically completes in seconds to minutes, but some accounts require manual review.
+
+## Handling KYC Outcomes
+
+Use Webhooks to receive real-time notifications when an account's `status` or `kyc_status` changes. Subscribe to the `account.updated` event and check the new status in the payload. Alternatively, poll `GET /v1/accounts/{accountId}` and check `kyc_status` until it reaches `APPROVED` or `REJECTED`.
+
+## Common Validation Errors
+
+| Error | Cause |
+|-------|-------|
+| `MISSING_REQUIRED_FIELD: contact.email_address` | Email address omitted from `contact` |
+| `MISSING_REQUIRED_FIELD: identity.tax_id` | SSN omitted from `identity` |
+| `VALIDATION_ERROR: identity.date_of_birth` | Date not in `YYYY-MM-DD` format |
+| `MISSING_REQUIRED_FIELD: agreements` | No agreements array provided |
+| `VALIDATION_ERROR: agreements[0].signed_at` | Timestamp not in ISO 8601 format |
+
+## Next Steps
+
+- Account Statuses — Full state machine and transitions
+- Balances & Positions — Reading portfolio data after the account is ACTIVE
+- Funding Overview — Link a bank account and make a deposit

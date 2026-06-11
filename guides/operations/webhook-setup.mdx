@@ -1,186 +1,605 @@
 ---
-title: "Registering and Managing Webhooks in Buildmarkets"
+title: "Setting Up Webhooks"
 sidebarTitle: "Webhook Setup"
-description: "Register, test, and manage Buildmarkets webhook endpoints to receive real-time event notifications for orders, transfers, and account activity."
+description: "Reference for every TAPP Engine webhook event type plus signature verification, delivery guarantees, and reliable handler best practices."
 ---
 
-Webhooks let your application react instantly to events on the Buildmarkets platform — order fills, deposit completions, KYC approvals, and more — without polling the API. This guide walks you through building a receiver endpoint, testing it locally, registering it with Buildmarkets, and hardening it for production.
+This page documents every event type that TAPP Engine can deliver to your webhook endpoint, organized by domain. Each entry includes the event name, when it fires, and the full JSON payload structure.
 
-<Steps>
+For information on registering webhooks and managing subscriptions, see [Webhooks Overview](/platform/webhooks). For signature verification and delivery guarantees, see [Webhook Security & Delivery](/guides/operations/webhook-setup).
 
-<Step title="Create a webhook endpoint">
+---
 
-Build an HTTP endpoint that accepts `POST` requests and responds immediately with a `200` status. Keep the response fast — process events asynchronously so you never risk timing out.
+## Payload envelope
 
-<CodeGroup>
+Every webhook event shares the same outer envelope structure, regardless of event type:
 
-```javascript Express.js
-// Express.js example
-app.post('/webhooks/bluum', (req, res) => {
-  const event = req.body;
-
-  console.log(`Received event: ${event.event}`, event.data);
-
-  // Process the event asynchronously
-  processEvent(event).catch(console.error);
-
-  // Respond immediately with 200
-  res.status(200).json({ received: true });
-});
-```
-
-```python Flask
-# Flask example
-@app.route('/webhooks/bluum', methods=['POST'])
-def handle_webhook():
-    event = request.get_json()
-
-    print(f"Received event: {event['event']}", event['data'])
-
-    # Process asynchronously
-    process_event.delay(event)
-
-    return jsonify(received=True), 200
-```
-
-</CodeGroup>
-
-<Note>
-  Buildmarkets will mark your webhook as failed if it does not receive a `2xx` response within 30 seconds. Always return immediately and push work to a background queue.
-</Note>
-
-</Step>
-
-<Step title="Test locally">
-
-Expose your local server to the internet using [ngrok](https://ngrok.com) so Buildmarkets can reach it during development:
-
-```bash
-ngrok http 3000
-# Forwarding: https://abc123.ngrok.io → http://localhost:3000
-```
-
-Copy the `https://` forwarding URL — you'll use it when registering your endpoint. Alternatively, use [webhook.site](https://webhook.site) for quick inspection without running a server at all.
-
-</Step>
-
-<Step title="Register with Buildmarkets">
-
-Call the `POST /webhooks` endpoint with your ngrok URL and the event type patterns you want to receive. Wildcard patterns like `order.*` subscribe you to all order events.
-
-```bash
-curl -X POST "$BASE_URL/webhooks" \
-  -H "Authorization: Basic $AUTH" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "name": "Development webhook",
-    "url": "https://abc123.ngrok.io/webhooks/bluum",
-    "eventTypeNames": ["order.*", "transfer.*"]
-  }'
-```
-
-Buildmarkets returns a webhook object including a `webhook_id` — save it for future updates and deletions.
-
-</Step>
-
-<Step title="Trigger test events">
-
-Create an order or deposit in the sandbox to generate real events. The request below triggers an `order.accepted` event immediately, followed by `order.filled` once the sandbox executes it.
-
-```bash
-# This will trigger order.accepted and eventually order.filled
-curl -X POST "$BASE_URL/investors/$INVESTOR_ID/orders" \
-  -H "Authorization: Basic $AUTH" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "symbol": "AAPL",
-    "side": "buy",
-    "type": "market",
-    "time_in_force": "day",
-    "quantity": "1"
-  }'
-```
-
-Check your endpoint logs to confirm events are arriving with the expected shape.
-
-</Step>
-
-</Steps>
-
-## Event handling patterns
-
-### Idempotent processing
-
-Buildmarkets may deliver the same event more than once — for example after a network timeout. Use the event's `id` field to deduplicate so that retries don't cause double-processing:
-
-```javascript
-const processedEvents = new Set(); // Use a database in production
-
-app.post('/webhooks/bluum', (req, res) => {
-  const { event, data } = req.body;
-  const eventId = data.id;
-
-  if (processedEvents.has(eventId)) {
-    return res.status(200).json({ received: true }); // Already processed
-  }
-
-  processedEvents.add(eventId);
-  handleEvent(event, data);
-
-  res.status(200).json({ received: true });
-});
-```
-
-### Event routing
-
-Route each event type to the appropriate business logic using a `switch` statement or a handler map:
-
-```javascript
-function handleEvent(eventName, data) {
-  switch (eventName) {
-    case 'order.filled':
-      notifyUser(data.account_id, `Order filled: ${data.symbol}`);
-      break;
-    case 'transfer.deposit.completed':
-      enableTrading(data.account_id);
-      break;
-    case 'transfer.deposit.failed':
-      alertUser(data.account_id, 'Deposit failed');
-      break;
-    case 'document.approved':
-      proceedWithOnboarding(data.account_id);
-      break;
+```json
+{
+  "id": "evt_a1b2c3d4e5f6",
+  "event_type": "order.filled",
+  "created_at": "2026-03-24T14:32:00Z",
+  "data": {
+    // Event-specific payload
   }
 }
 ```
 
-## Production checklist
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | string | Unique identifier for this event delivery |
+| `event_type` | string | The event type name (see tables below) |
+| `created_at` | string (ISO 8601) | Timestamp when the event was generated |
+| `data` | object | Event-specific payload — fields vary by `event_type` |
 
-Before going live, verify each item below is in place:
+---
 
-- [ ] Endpoint uses HTTPS
-- [ ] Responds with `2xx` within 30 seconds
-- [ ] Processes events asynchronously (never block the response)
-- [ ] Handles duplicate events idempotently
-- [ ] Verifies webhook signatures
-- [ ] Monitors for delivery failures
-- [ ] Logs all received events for debugging
-- [ ] Webhook URL updated from ngrok/dev to your production domain
+## All event types
 
-## Updating for production
+| Domain | Event | When it fires |
+|--------|-------|---------------|
+| Account | `account.kyc_approved` | KYC review passed; account is now `ACTIVE` |
+| Account | `account.kyc_rejected` | KYC review failed; account is now `ACTION_REQUIRED` |
+| Account | `account.closed` | Account has been successfully closed |
+| Funding | `funding.ach_relationship_created` | An ACH relationship has been created and approved |
+| Funding | `funding.ach_relationship_removed` | An ACH relationship has been cancelled |
+| Funding | `funding.deposit_completed` | An ACH deposit has fully settled |
+| Funding | `funding.deposit_returned` | An ACH deposit was returned by the bank |
+| Funding | `funding.withdrawal_completed` | An ACH withdrawal has fully settled |
+| Funding | `funding.withdrawal_returned` | An ACH withdrawal was returned by the bank |
+| Trading | `order.submitted` | An order was accepted and submitted to the market |
+| Trading | `order.filled` | An order was fully executed |
+| Trading | `order.rejected` | An order was rejected before or during execution |
+| Trading | `order.cancelled` | An order was cancelled (user-initiated or system) |
 
-When you're ready to go live, update your webhook registration with your production URL using a `PATCH` request:
+---
 
-```bash
-curl -X PATCH "$BASE_URL/webhooks/$WEBHOOK_ID" \
-  -H "Authorization: Basic $AUTH" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "url": "https://your-app.com/webhooks/bluum",
-    "description": "Production webhook"
-  }'
+## Account events
+
+### `account.kyc_approved`
+
+Fires when a new account completes KYC review and transitions to `ACTIVE` status. This is typically the signal your application should act on to enable trading and funding features for a user.
+
+```json
+{
+  "id": "evt_a1b2c3d4e5f6",
+  "event_type": "account.kyc_approved",
+  "created_at": "2026-03-24T09:15:00Z",
+  "data": {
+    "account_id": "b3d9f1a2-4c7e-4f0b-9e2d-1a2b3c4d5e6f",
+    "status": "ACTIVE",
+    "approved_at": "2026-03-24T09:15:00Z"
+  }
+}
 ```
 
-<Tip>
-  Create a separate webhook registration for production with scoped event types rather than using a catch-all `*` pattern. This keeps your handler logic focused and reduces noise.
-</Tip>
+### `account.kyc_rejected`
+
+Fires when KYC review fails. The account transitions to `ACTION_REQUIRED`. Your application should prompt the user to provide additional documentation or contact support.
+
+```json
+{
+  "id": "evt_b2c3d4e5f6a7",
+  "event_type": "account.kyc_rejected",
+  "created_at": "2026-03-24T09:18:00Z",
+  "data": {
+    "account_id": "b3d9f1a2-4c7e-4f0b-9e2d-1a2b3c4d5e6f",
+    "status": "ACTION_REQUIRED",
+    "rejection_reason": "IDENTITY_VERIFICATION_FAILED",
+    "rejected_at": "2026-03-24T09:18:00Z"
+  }
+}
+```
+
+### `account.closed`
+
+Fires when an account closure completes. The account status transitions to `CLOSED`.
+
+```json
+{
+  "id": "evt_c3d4e5f6a7b8",
+  "event_type": "account.closed",
+  "created_at": "2026-03-24T16:00:00Z",
+  "data": {
+    "account_id": "b3d9f1a2-4c7e-4f0b-9e2d-1a2b3c4d5e6f",
+    "status": "CLOSED",
+    "closed_at": "2026-03-24T16:00:00Z"
+  }
+}
+```
+
+---
+
+## Funding events
+
+### `funding.ach_relationship_created`
+
+Fires when a new ACH relationship is successfully created and passes verification, entering `APPROVED` status.
+
+```json
+{
+  "id": "evt_d4e5f6a7b8c9",
+  "event_type": "funding.ach_relationship_created",
+  "created_at": "2026-03-15T10:30:01Z",
+  "data": {
+    "account_id": "b3d9f1a2-4c7e-4f0b-9e2d-1a2b3c4d5e6f",
+    "ach_relationship_id": "e7f2a1b3-9c4d-4e0f-8a1b-2c3d4e5f6a7b",
+    "status": "APPROVED",
+    "bank_account_number": "****9012",
+    "bank_routing_number": "021000021",
+    "bank_account_type": "CHECKING"
+  }
+}
+```
+
+### `funding.ach_relationship_removed`
+
+Fires when an ACH relationship is cancelled via `DELETE /v1/accounts/{accountId}/ach-relationships/{achId}`.
+
+```json
+{
+  "id": "evt_e5f6a7b8c9d0",
+  "event_type": "funding.ach_relationship_removed",
+  "created_at": "2026-03-20T11:00:00Z",
+  "data": {
+    "account_id": "b3d9f1a2-4c7e-4f0b-9e2d-1a2b3c4d5e6f",
+    "ach_relationship_id": "e7f2a1b3-9c4d-4e0f-8a1b-2c3d4e5f6a7b",
+    "status": "CANCELLED"
+  }
+}
+```
+
+### `funding.deposit_completed`
+
+Fires when an ACH deposit fully settles and funds are available in the account.
+
+```json
+{
+  "id": "evt_f6a7b8c9d0e1",
+  "event_type": "funding.deposit_completed",
+  "created_at": "2026-03-17T08:30:00Z",
+  "data": {
+    "account_id": "b3d9f1a2-4c7e-4f0b-9e2d-1a2b3c4d5e6f",
+    "activity_id": "f1a2b3c4-d5e6-7f8a-9b0c-d1e2f3a4b5c6",
+    "ach_relationship_id": "e7f2a1b3-9c4d-4e0f-8a1b-2c3d4e5f6a7b",
+    "amount": "2500.00",
+    "status": "SETTLED",
+    "settled_at": "2026-03-17T08:30:00Z"
+  }
+}
+```
+
+### `funding.deposit_returned`
+
+Fires when an ACH deposit is returned by the bank. The `return_code` identifies the reason.
+
+```json
+{
+  "id": "evt_a7b8c9d0e1f2",
+  "event_type": "funding.deposit_returned",
+  "created_at": "2026-03-12T16:45:00Z",
+  "data": {
+    "account_id": "b3d9f1a2-4c7e-4f0b-9e2d-1a2b3c4d5e6f",
+    "activity_id": "b2c3d4e5-f6a7-8b9c-0d1e-2f3a4b5c6d7e",
+    "ach_relationship_id": "e7f2a1b3-9c4d-4e0f-8a1b-2c3d4e5f6a7b",
+    "amount": "500.00",
+    "status": "RETURNED",
+    "return_code": "R01",
+    "return_reason": "Insufficient Funds"
+  }
+}
+```
+
+### `funding.withdrawal_completed`
+
+Fires when an ACH withdrawal fully settles at the destination bank.
+
+```json
+{
+  "id": "evt_b8c9d0e1f2a3",
+  "event_type": "funding.withdrawal_completed",
+  "created_at": "2026-03-18T09:00:00Z",
+  "data": {
+    "account_id": "b3d9f1a2-4c7e-4f0b-9e2d-1a2b3c4d5e6f",
+    "activity_id": "c4d5e6f7-a8b9-0c1d-2e3f-4a5b6c7d8e9f",
+    "ach_relationship_id": "e7f2a1b3-9c4d-4e0f-8a1b-2c3d4e5f6a7b",
+    "amount": "500.00",
+    "status": "SETTLED",
+    "settled_at": "2026-03-18T09:00:00Z"
+  }
+}
+```
+
+### `funding.withdrawal_returned`
+
+Fires when an ACH withdrawal is returned by the bank.
+
+```json
+{
+  "id": "evt_c9d0e1f2a3b4",
+  "event_type": "funding.withdrawal_returned",
+  "created_at": "2026-03-19T14:00:00Z",
+  "data": {
+    "account_id": "b3d9f1a2-4c7e-4f0b-9e2d-1a2b3c4d5e6f",
+    "activity_id": "d5e6f7a8-b9c0-d1e2-f3a4-b5c6d7e8f9a0",
+    "ach_relationship_id": "e7f2a1b3-9c4d-4e0f-8a1b-2c3d4e5f6a7b",
+    "amount": "250.00",
+    "status": "RETURNED",
+    "return_code": "R02",
+    "return_reason": "Account Closed"
+  }
+}
+```
+
+---
+
+## Trading events
+
+### `order.submitted`
+
+Fires when an order has been accepted by TAPP and submitted to the market. The order is now in `pending_new` or `new` status.
+
+```json
+{
+  "id": "evt_d0e1f2a3b4c5",
+  "event_type": "order.submitted",
+  "created_at": "2026-03-24T14:00:00Z",
+  "data": {
+    "account_id": "b3d9f1a2-4c7e-4f0b-9e2d-1a2b3c4d5e6f",
+    "order_id": "ord_1a2b3c4d-5e6f-7a8b-9c0d-e1f2a3b4c5d6",
+    "symbol": "AAPL",
+    "side": "buy",
+    "order_type": "market",
+    "quantity": "10",
+    "status": "new",
+    "submitted_at": "2026-03-24T14:00:00Z"
+  }
+}
+```
+
+### `order.filled`
+
+Fires when an order is fully executed. Includes the average fill price and total filled quantity.
+
+```json
+{
+  "id": "evt_e1f2a3b4c5d6",
+  "event_type": "order.filled",
+  "created_at": "2026-03-24T14:00:03Z",
+  "data": {
+    "account_id": "b3d9f1a2-4c7e-4f0b-9e2d-1a2b3c4d5e6f",
+    "order_id": "ord_1a2b3c4d-5e6f-7a8b-9c0d-e1f2a3b4c5d6",
+    "symbol": "AAPL",
+    "side": "buy",
+    "order_type": "market",
+    "quantity": "10",
+    "filled_quantity": "10",
+    "average_fill_price": "213.49",
+    "status": "filled",
+    "filled_at": "2026-03-24T14:00:03Z"
+  }
+}
+```
+
+### `order.rejected`
+
+Fires when an order is rejected — either by TAPP validation or by the downstream execution venue. The `rejection_reason` explains why.
+
+```json
+{
+  "id": "evt_f2a3b4c5d6e7",
+  "event_type": "order.rejected",
+  "created_at": "2026-03-24T14:00:01Z",
+  "data": {
+    "account_id": "b3d9f1a2-4c7e-4f0b-9e2d-1a2b3c4d5e6f",
+    "order_id": "ord_2b3c4d5e-6f7a-8b9c-0d1e-2f3a4b5c6d7e",
+    "symbol": "AAPL",
+    "side": "buy",
+    "order_type": "market",
+    "quantity": "10000",
+    "status": "rejected",
+    "rejection_reason": "INSUFFICIENT_BUYING_POWER",
+    "rejected_at": "2026-03-24T14:00:01Z"
+  }
+}
+```
+
+### `order.cancelled`
+
+Fires when an order is cancelled — either by the user (`DELETE /v1/accounts/{id}/orders/{orderId}`) or by the system (e.g., day order not filled by market close).
+
+```json
+{
+  "id": "evt_a3b4c5d6e7f8",
+  "event_type": "order.cancelled",
+  "created_at": "2026-03-24T16:00:01Z",
+  "data": {
+    "account_id": "b3d9f1a2-4c7e-4f0b-9e2d-1a2b3c4d5e6f",
+    "order_id": "ord_3c4d5e6f-7a8b-9c0d-e1f2-a3b4c5d6e7f8",
+    "symbol": "TSLA",
+    "side": "buy",
+    "order_type": "limit",
+    "quantity": "5",
+    "filled_quantity": "0",
+    "status": "cancelled",
+    "cancel_reason": "DAY_ORDER_EXPIRED",
+    "cancelled_at": "2026-03-24T16:00:01Z"
+  }
+}
+```
+
+---
+
+## Handling duplicate events
+
+In rare cases (network issues, retries), your endpoint may receive the same event more than once. Use the `id` field on each event payload as an **idempotency key** — store processed event IDs and skip processing if the ID has already been handled.
+
+```javascript
+const processedEventIds = new Set(); // or use a persistent store
+
+app.post('/webhooks/tapp', (req, res) => {
+  const event = req.body;
+  
+  if (processedEventIds.has(event.id)) {
+    return res.status(200).json({ received: true }); // Already processed — skip
+  }
+  
+  processedEventIds.add(event.id);
+  // ... process event
+  res.status(200).json({ received: true });
+});
+```
+
+---
+
+## Next steps
+
+* [Webhooks Overview →](/platform/webhooks) — Register and manage webhook endpoints
+* [Webhook Security & Delivery →](/guides/operations/webhook-setup) — Verify signatures and understand retry behavior
+
+Updated 3 months ago
+
+---
+
+## Webhook Security & Delivery
+
+Every webhook payload TAPP sends is cryptographically signed. Verifying this signature before processing an event is **critical** — it ensures the payload genuinely came from TAPP and has not been tampered with. This page explains how to verify signatures, what delivery guarantees TAPP provides, how to inspect delivery history, and best practices for building a reliable webhook handler.
+
+* * *
+
+### Signature verification
+
+When you register a webhook, TAPP returns a `secret` that begins with `whsec_`. TAPP uses this secret to compute an HMAC-SHA256 signature of the raw request body and attaches it to every delivery via the `X-TAPP-Signature` header.
+
+**Your endpoint must verify this signature before acting on any payload.**
+
+#### Verification steps
+
+1.  Read the raw request body as bytes (do not parse JSON first)
+2.  Read the `X-TAPP-Signature` header
+3.  Compute `HMAC-SHA256(raw_body, secret)`
+4.  Compare your computed signature to the value in the header
+5.  If they match — process the event. If not — return `400` and ignore the payload
+
+> **Important:** Always use a constant-time comparison function when comparing signatures to prevent timing attacks. Do not use simple string equality (`===`).
+
+#### Example — Node.js (Express)
+
+```javascript
+const crypto = require('crypto');
+const express = require('express');
+const app = express();
+
+// Use raw body parser to preserve the exact bytes for HMAC
+app.use('/webhooks/tapp', express.raw({ type: 'application/json' }));
+
+const WEBHOOK_SECRET = process.env.TAPP_WEBHOOK_SECRET; // your whsec_... value
+
+app.post('/webhooks/tapp', (req, res) => {
+  const signature = req.headers['x-tapp-signature'];
+  if (!signature) {
+    return res.status(400).send('Missing signature');
+  }
+
+  // Compute expected signature
+  const expectedSig = crypto
+    .createHmac('sha256', WEBHOOK_SECRET)
+    .update(req.body) // req.body is raw bytes when using express.raw()
+    .digest('hex');
+
+  // Constant-time comparison
+  const sigBuffer = Buffer.from(signature);
+  const expectedBuffer = Buffer.from(expectedSig);
+
+  if (
+    sigBuffer.length !== expectedBuffer.length ||
+    !crypto.timingSafeEqual(sigBuffer, expectedBuffer)
+  ) {
+    return res.status(400).send('Invalid signature');
+  }
+
+  // Signature verified — parse and process
+  const event = JSON.parse(req.body);
+  console.log('Received event:', event.event_type);
+
+  // ... handle event
+
+  res.status(200).json({ received: true });
+});
+```
+
+#### Example — Python (Flask)
+
+```python
+import hmac
+import hashlib
+import os
+from flask import Flask, request, abort
+
+app = Flask(__name__)
+WEBHOOK_SECRET = os.environ['TAPP_WEBHOOK_SECRET'].encode()
+
+@app.route('/webhooks/tapp', methods=['POST'])
+def handle_webhook():
+    signature = request.headers.get('X-TAPP-Signature')
+    if not signature:
+        abort(400, 'Missing signature')
+
+    # Compute expected signature over raw bytes
+    expected_sig = hmac.new(
+        WEBHOOK_SECRET,
+        request.data,  # Raw bytes, before JSON parsing
+        hashlib.sha256
+    ).hexdigest()
+
+    # Constant-time comparison
+    if not hmac.compare_digest(signature, expected_sig):
+        abort(400, 'Invalid signature')
+
+    # Parse and process
+    event = request.get_json()
+    print(f"Received event: {event['event_type']}")
+
+    # ... handle event
+
+    return {'received': True}, 200
+```
+
+* * *
+
+### Delivery mechanics
+
+#### Endpoint requirements
+
+Your webhook URL must:
+
+*   Be publicly accessible via HTTPS (TLS 1.2 or higher)
+*   Return a `2xx` HTTP status code within **10 seconds**
+*   Accept POST requests with `Content-Type: application/json`
+
+TAPP treats any non-`2xx` response (including `3xx` redirects) as a delivery failure and will retry.
+
+#### Retry schedule
+
+If your endpoint does not return a `2xx` within 10 seconds, TAPP retries delivery with exponential backoff:
+
+| Attempt | Delay after previous attempt |
+|---------|------------------------------|
+| 1st retry | 5 minutes |
+| 2nd retry | 30 minutes |
+| 3rd retry | 2 hours |
+| 4th retry | 5 hours |
+| 5th retry | 10 hours |
+
+After 5 failed retries, the delivery is marked as permanently failed. TAPP does not attempt further delivery for that event. Check the delivery history endpoint to identify and investigate failed events.
+
+> **Your endpoint should return `2xx` quickly, then process asynchronously.** If your handler takes more than a few seconds, return `200` immediately and offload processing to a background queue. This prevents timeout-induced retries for events you have already received.
+
+#### At-least-once delivery
+
+TAPP guarantees **at-least-once delivery** — every event will be delivered at least once, but rare network conditions can result in duplicate deliveries. Use the `id` field from the payload envelope as an idempotency key to detect and safely ignore duplicates.
+
+* * *
+
+### Delivery history
+
+The deliveries endpoint provides a log of every delivery attempt made for a specific webhook — including the HTTP status code your server returned, the response time, and whether the attempt succeeded.
+
+#### `GET /v1/webhooks/{webhookId}/deliveries`
+
+##### Path parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `webhookId` | string (UUID) | ✅ | The webhook to retrieve delivery history for |
+
+##### Response fields
+
+Each delivery attempt object contains:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | string | Unique delivery attempt ID |
+| `event_id` | string | ID of the event this delivery corresponds to |
+| `event_type` | string | The event type that was delivered |
+| `status` | string | `succeeded` or `failed` |
+| `http_status` | integer \| null | HTTP status code returned by your endpoint |
+| `response_time_ms` | integer \| null | Time in milliseconds for your endpoint to respond |
+| `attempt_number` | integer | Which delivery attempt this was (1 = first, 2 = first retry, etc.) |
+| `attempted_at` | string (ISO 8601) | Timestamp of the delivery attempt |
+| `next_retry_at` | string (ISO 8601) \| null | When the next retry will be attempted; `null` if succeeded or max retries reached |
+
+##### Example request
+
+```bash
+curl https://api.tappengine.com/v1/webhooks/wh_a1b2c3d4-e5f6-7a8b-9c0d-e1f2a3b4c5d6/deliveries \
+  -H "Authorization: Bearer $TAPP_API_KEY"
+```
+
+##### Example response
+
+```json
+[
+  {
+    "id": "del_a1b2c3d4",
+    "event_id": "evt_e1f2a3b4c5d6",
+    "event_type": "order.filled",
+    "status": "succeeded",
+    "http_status": 200,
+    "response_time_ms": 142,
+    "attempt_number": 1,
+    "attempted_at": "2026-03-24T14:00:04Z",
+    "next_retry_at": null
+  },
+  {
+    "id": "del_b2c3d4e5",
+    "event_id": "evt_d0e1f2a3b4c5",
+    "event_type": "order.submitted",
+    "status": "failed",
+    "http_status": 503,
+    "response_time_ms": 9823,
+    "attempt_number": 1,
+    "attempted_at": "2026-03-24T14:00:01Z",
+    "next_retry_at": "2026-03-24T14:05:01Z"
+  },
+  {
+    "id": "del_c3d4e5f6",
+    "event_id": "evt_d0e1f2a3b4c5",
+    "event_type": "order.submitted",
+    "status": "succeeded",
+    "http_status": 200,
+    "response_time_ms": 88,
+    "attempt_number": 2,
+    "attempted_at": "2026-03-24T14:05:01Z",
+    "next_retry_at": null
+  }
+]
+```
+
+* * *
+
+### Disabling a webhook
+
+If your endpoint is temporarily unavailable (e.g., during a deployment), you can pause delivery by setting the webhook `status` to `disabled` via `PATCH /v1/webhooks/{webhookId}`. TAPP will not attempt delivery while the webhook is disabled.
+
+> **Note:** TAPP does not queue events that occur while a webhook is disabled. Events that fire during a disabled window will not be retroactively delivered. Use the relevant TAPP API endpoints to reconcile missed state changes if needed.
+
+* * *
+
+### Security best practices
+
+*   **Verify every signature** before processing any payload — do not skip this step even in development
+*   **Use `HTTPS` only** — never register a webhook pointing to a plain HTTP URL
+*   **Store the secret securely** — treat it like a password; use environment variables or a secrets manager, never hardcode it
+*   **Return `2xx` fast, process async** — offload event handling to a queue to avoid timeout-induced retries
+*   **Implement idempotency** — use the event `id` to detect and discard duplicate deliveries
+*   **Monitor delivery history** — set up alerts for sustained delivery failures so you can detect endpoint outages quickly
+
+* * *
+
+### Next steps
+
+*   [Webhooks Overview →](/platform/webhooks) — Register and manage webhook endpoints
+*   [Webhook Events Reference →](/guides/operations/webhook-setup) — Full payload schemas for every event type
+
+Updated 3 months ago

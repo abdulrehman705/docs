@@ -1,0 +1,39 @@
+---
+title: "Documents Overview"
+sidebarTitle: "Overview"
+description: "Overview of the Documents APIs that manage the lifecycle of compliance and brokerage documents, including account and owner document types."
+---
+
+## Core Functionality
+
+The Documents APIs manage the complete lifecycle of compliance and brokerage documents. As stated, they handle "retrieving monthly statements and trade confirmations to uploading KYC identity documents, sending tax forms by email, and generating W-9 records."
+
+## Document Categories
+
+Two distinct types use different API patterns:
+
+**Account Documents**: System-generated records including statements, trade confirmations, and tax forms (1099s). Primary use involves displaying in document centers and enabling user downloads or email delivery.
+
+**Owner Documents**: Compliance files uploaded to accounts such as ID scans, W-9s, and tax forms. Typical application is KYC submission during onboarding or remediation.
+
+## API Endpoints
+
+| Method | Path | Purpose |
+|--------|------|---------|
+| GET | `/v1/documents/types` | List supported document type classifications |
+| POST | `/v1/documents/list` | Retrieve and filter account documents |
+| POST | `/v1/documents/email` | Email documents to recipients |
+| POST | `/v1/documents/w9` | Request W-9 generation |
+| POST | `/v1/accounts/{accountId}/documents/upload` | Upload compliance documents |
+
+## Document Retrieval Process
+
+Account documents are "stored and served via a content delivery URL." The `/v1/documents/list` endpoint returns document objects with `url` fields for hosted PDFs, enabling direct download links, email forwarding, or metadata display in document history tables.
+
+## Common Document Types
+
+| ID | Name | Description |
+|----|------|-------------|
+| 1 | Account Statement | Monthly brokerage account statement |
+| 2 | Trade Confirmation | Per-trade execution confirmation |
+| 3 | Tax Document | Annual tax forms (e.g., 1099-B, 1099-DIV) |

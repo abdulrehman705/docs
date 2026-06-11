@@ -1,0 +1,33 @@
+---
+title: "New Order Multileg <AB>"
+sidebarTitle: "New Order Multileg <AB>"
+description: "How to create multi-leg orders for complex strategies such as spreads, straddles, butterflies, and iron condors via FIX."
+---
+
+## Overview
+
+The New Order Multileg message (MsgType = `"AB"`) enables creation of multi-leg orders for complex trading strategies. It "Creates a multi-leg order supporting strategies such as covered calls, vertical spreads, straddles, strangles, butterflies, and iron condors."
+
+## Key Requirements
+
+For multileg orders, you must set `SecurityType=MLEG` (Tag 167), with each leg defined in a repeating group starting at Tag 555 (NoLegs).
+
+## Order-Level Fields
+
+- **Account** (Tag 1): Trading account identifier
+- **ClOrdID** (Tag 11): Unique client-assigned order identifier
+- **OrderQty** (Tag 38): Number of spreads/contracts (0 for Dollar Amount orders)
+- **OrdType** (Tag 40): Order type (1=Market, 2=Limit, 3=Stop, 4=Stop Limit)
+- **Price** (Tag 44): Net debit/credit limit price for entire spread
+- **Side** (Tag 54): Buy (1) or Sell (2)
+- **Symbol** (Tag 55): Underlying symbol in uppercase
+- **TimeInForce** (Tag 59): Day (0) or GTC (1)
+- **TransactTime** (Tag 60): UTC timestamp
+
+## Leg Repeating Group (Tag 555)
+
+Each leg specifies 2-4 components using fields like: **LegSymbol** (Tag 600); **LegSecurityType** (Tag 609): CS for stock, OPT for options; **LegStrikePrice** (Tag 612); **LegSide** (Tag 624); **LegQty** (Tag 687).
+
+## Examples Provided
+
+The documentation includes sample FIX messages for bull call spreads, iron condors, and covered call strategies demonstrating proper syntax and field ordering.

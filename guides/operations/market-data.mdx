@@ -1,155 +1,372 @@
 ---
-title: "Querying Real-Time and Historical Market Data in Buildmarkets"
+title: "Working with Market Data"
 sidebarTitle: "Market Data"
-description: "Fetch real-time quotes, historical OHLCV bars, market snapshots, and trading calendars to power price charts and portfolio valuations."
+description: "Reference for TAPP Engine market data endpoints covering real-time and historical prices, company fundamentals, news, dividends, logos, and reference data."
 ---
 
-Buildmarkets' market data APIs give you everything you need to build compelling trading interfaces — from live bid/ask quotes and historical candlestick data to market-open indicators and full asset snapshots. This guide shows you how to query each endpoint and combine them into a production-ready stock detail page.
+## Overview
 
-## Asset discovery
+TAPP Engine offers two price data endpoints for equities: "a real-time quote endpoint delivering live bid/ask/last data from the market feed, and a historical endpoint returning end-of-day OHLCV bars over any date range."
 
-Before displaying price data, find the assets your users want to trade. Buildmarkets provides three ways to look up assets.
+## Real-Time Quotes
 
-### Search by name or symbol
+**Endpoint:** `GET /v1/marketdata/real-time/{symbol}`
 
-Use the search endpoint to let users type a company name or ticker and retrieve matching results:
+Returns live quotes sourced from QuoteMedia, including bid, ask, last trade price, volume, and change data. The service operates "during regular U.S. market hours (9:30 AM – 4:00 PM ET, Monday–Friday, excluding market holidays)."
+
+**Path Parameters:**
+- `symbol` (string, required) – Ticker symbol
+
+**Response Fields:**
+- `symbol`, `last`, `bid`, `ask`, `bid_size`, `ask_size`, `volume`, `change`, `change_percent`, `previous_close`, `open`, `high`, `low`, `timestamp`
+
+**Example:**
+```bash
+curl https://api.tappengine.com/v1/marketdata/real-time/AAPL \
+  -H "Authorization: Bearer $TAPP_API_KEY"
+```
+
+## Historical Prices
+
+**Endpoint:** `GET /v1/marketdata/historical/{symbol}`
+
+Provides end-of-day OHLCV bars spanning multiple years for most U.S.-listed equities.
+
+**Path Parameters:**
+- `symbol` (string, required)
+
+**Query Parameters:**
+- `startDate` (YYYY-MM-DD, optional) – Defaults to 1 year prior
+- `endDate` (YYYY-MM-DD, optional) – Defaults to today
+
+**Response Fields:**
+- `date`, `open`, `high`, `low`, `close`, `adj_close`, `volume`
+
+Use `adj_close` for calculations, as "it accounts for stock splits and dividend distributions, making the series historically consistent."
+
+## Common Errors
+
+| Status | Error | Cause |
+|--------|-------|-------|
+| 400 | `INVALID_SYMBOL` | Unrecognized symbol |
+| 400 | `INVALID_DATE_RANGE` | Malformed dates or reversed range |
+| 404 | `SYMBOL_NOT_FOUND` | No data available |
+| 429 | `RATE_LIMIT_EXCEEDED` | Excessive requests |
+
+---
+
+## Company Profile & Fundamentals
+
+### Overview
+
+TAPP Engine provides two key endpoints for accessing company-level financial data. The **company profile** endpoint delivers "high-level descriptive and valuation data," while the **balance sheet** endpoint surfaces "structured financial statements."
+
+### Available Endpoints
+
+Two primary routes are offered:
+
+1. `GET /v1/marketdata/company-profile/{symbol}` — Returns company overview, valuation metrics, and sector classification
+2. `GET /v1/marketdata/balance-sheet/{symbol}` — Delivers annual or quarterly financial statements
+
+### Company Profile Endpoint
+
+This endpoint returns "a rich snapshot of a company — its business description, sector and industry classification, key valuation ratios, market capitalization, and exchange listing information."
+
+**Required parameter:** `symbol` (ticker, e.g., AAPL, NVDA)
+
+**Key response fields include:**
+- Company name, description, and exchange listing
+- Sector and industry classification
+- Market capitalization and valuation ratios (P/E ratio, EPS, dividend yield)
+- 52-week price range, average volume, and shares outstanding
+- Country, website, CEO name, and employee count
+
+### Balance Sheet Endpoint
+
+This endpoint provides "structured financial statements for a symbol — balance sheet, income statement, and cash flow data — in either annual or quarterly form."
+
+**Path parameter:** Ticker symbol or `*CUSIP`/`*ISIN` identifier
+
+**Query options:**
+- `statementType`: Choose `annual` or `quarterly` (default: annual)
+- `numberOfReports`: Specify number of periods (default: 5)
+
+**Response includes:** Period labels, dates, assets, liabilities, equity, revenue, net income, operating income, gross profit, debt, cash, free cash flow, and diluted EPS.
+
+### Common Errors
+
+Possible error responses range from `400 INVALID_SYMBOL` to `404 SYMBOL_NOT_FOUND` and `404 NO_FINANCIAL_DATA`.
+
+---
+
+## News, Dividends & Logos
+
+Three companion endpoints round out TAPP Engine's per-symbol market data surface: **news** for surfacing relevant articles and corporate actions, **cash dividends** for historical distribution records, and **logos** for company brand images. These are especially useful for building rich stock detail pages and notification feeds.
+
+---
+
+### Endpoints
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/v1/marketdata/news/{symbol}` | News articles and corporate actions for a symbol |
+| `GET` | `/v1/marketdata/cash-dividends/{symbol}` | Dividend history with ex-dates and amounts |
+| `GET` | `/v1/marketdata/logos/{symbol}` | Company logo image |
+
+---
+
+### News & corporate actions
+
+Returns a list of news articles and corporate action events linked to a specific symbol. Items are returned in reverse chronological order (most recent first). Use the `limit` parameter to control how many items you retrieve.
+
+#### `GET /v1/marketdata/news/{symbol}`
+
+##### Path parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `symbol` | string | ✅ | Ticker symbol (e.g., `AAPL`) |
+
+##### Query parameters
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `limit` | integer | ❌ | `50` | Maximum number of items to return |
+
+##### Response fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | string | Unique identifier for the news item |
+| `type` | string | Item type: `news` or `corporate_action` |
+| `headline` | string | Article headline or event title |
+| `summary` | string \| null | Brief summary or description of the article/event |
+| `source` | string \| null | Publication or data source (e.g., `"Reuters"`, `"SEC Filing"`) |
+| `url` | string \| null | Link to the full article (may be null for corporate actions) |
+| `published_at` | string (ISO 8601) | Publication or event timestamp |
+| `symbols` | array of strings | Ticker symbols this item is tagged to |
+
+##### Example request
 
 ```bash
-curl -X GET "$BASE_URL/assets/search?q=tesla" \
-  -H "Authorization: Basic $AUTH"
+curl "https://api.tappengine.com/v1/marketdata/news/AAPL?limit=5" \
+  -H "Authorization: Bearer $TAPP_API_KEY"
 ```
 
-The response includes each asset's symbol, name, exchange, and tradability status.
+##### Example response
 
-### List with filters
+```json
+[
+  {
+    "id": "nws_a1b2c3d4",
+    "type": "news",
+    "headline": "Apple Reports Record Q1 Revenue Driven by Services Growth",
+    "summary": "Apple Inc. posted quarterly revenue of $124.3 billion, beating analyst expectations, with Services revenue reaching an all-time high.",
+    "source": "Reuters",
+    "url": "https://reuters.com/technology/apple-q1-results-2026",
+    "published_at": "2026-01-30T21:05:00Z",
+    "symbols": ["AAPL"]
+  },
+  {
+    "id": "nws_b2c3d4e5",
+    "type": "corporate_action",
+    "headline": "Apple Inc. — Quarterly Dividend Declaration",
+    "summary": "Apple declared a quarterly cash dividend of $0.25 per share, payable February 13, 2026 to shareholders of record as of February 10, 2026.",
+    "source": "SEC Filing",
+    "url": null,
+    "published_at": "2026-01-30T20:00:00Z",
+    "symbols": ["AAPL"]
+  },
+  {
+    "id": "nws_c3d4e5f6",
+    "type": "news",
+    "headline": "Apple Vision Pro 2 Launch Rumored for Q3 2026",
+    "summary": "Industry analysts expect Apple to unveil a second-generation Vision Pro headset with improved battery life and a lower price point.",
+    "source": "Bloomberg",
+    "url": "https://bloomberg.com/technology/apple-vision-pro-2-2026",
+    "published_at": "2026-03-18T14:30:00Z",
+    "symbols": ["AAPL"]
+  }
+]
+```
 
-Fetch all assets in a category using query parameters. The example below returns every tradable US equity:
+---
+
+### Cash dividends
+
+Returns the dividend payment history for a symbol, including ex-dividend dates, record dates, payment dates, and per-share amounts. Supports date range filtering using `excludingFrom` and `excludingTo`.
+
+Supports lookup by ticker or by CUSIP/ISIN using the `*` prefix.
+
+#### `GET /v1/marketdata/cash-dividends/{symbol}`
+
+##### Path parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `symbol` | string | ✅ | Ticker (e.g., `AAPL`) or `*CUSIP`/`*ISIN` (e.g., `*US0378331005`) |
+
+##### Query parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `excludingFrom` | string (YYYY-MM-DD) | ❌ | Start of date range filter (ex-dividend date ≥ this value) |
+| `excludingTo` | string (YYYY-MM-DD) | ❌ | End of date range filter (ex-dividend date ≤ this value). Must be used with `excludingFrom` |
+
+##### Response fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `symbol` | string | Ticker symbol |
+| `dividends` | array | Ordered list of dividend records (most recent first) |
+| `dividends[].ex_date` | string (YYYY-MM-DD) | Ex-dividend date — must hold shares before this date to receive the dividend |
+| `dividends[].record_date` | string (YYYY-MM-DD) | Shareholder record date |
+| `dividends[].pay_date` | string (YYYY-MM-DD) \| null | Date the dividend was or will be paid |
+| `dividends[].amount` | number | Per-share dividend amount in USD |
+| `dividends[].frequency` | string | Payment frequency: `quarterly`, `annual`, `monthly`, `special` |
+| `dividends[].currency` | string | Currency of the dividend (e.g., `USD`) |
+
+##### Example request — last year of dividends
 
 ```bash
-# All tradable US equities
-curl -X GET "$BASE_URL/assets?asset_class=us_equity&tradable=true" \
-  -H "Authorization: Basic $AUTH"
+curl "https://api.tappengine.com/v1/marketdata/cash-dividends/AAPL?excludingFrom=2025-01-01&excludingTo=2025-12-31" \
+  -H "Authorization: Bearer $TAPP_API_KEY"
 ```
 
-### Get asset details
+##### Example response
 
-Retrieve full metadata for a single asset by its symbol:
+```json
+{
+  "symbol": "AAPL",
+  "dividends": [
+    {
+      "ex_date": "2025-11-07",
+      "record_date": "2025-11-07",
+      "pay_date": "2025-11-14",
+      "amount": 0.25,
+      "frequency": "quarterly",
+      "currency": "USD"
+    },
+    {
+      "ex_date": "2025-08-08",
+      "record_date": "2025-08-08",
+      "pay_date": "2025-08-15",
+      "amount": 0.25,
+      "frequency": "quarterly",
+      "currency": "USD"
+    },
+    {
+      "ex_date": "2025-05-09",
+      "record_date": "2025-05-09",
+      "pay_date": "2025-05-15",
+      "amount": 0.25,
+      "frequency": "quarterly",
+      "currency": "USD"
+    },
+    {
+      "ex_date": "2025-02-07",
+      "record_date": "2025-02-07",
+      "pay_date": "2025-02-13",
+      "amount": 0.25,
+      "frequency": "quarterly",
+      "currency": "USD"
+    }
+  ]
+}
+```
+
+---
+
+### Logos
+
+Returns the company logo image for a given symbol. The response provides a URL to a hosted image asset suitable for use directly in `<img>` tags or as a background image.
+
+Logos are provided by QuoteMedia and are updated periodically to reflect rebrands or acquisitions.
+
+#### `GET /v1/marketdata/logos/{symbol}`
+
+##### Path parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `symbol` | string | ✅ | Ticker symbol (e.g., `AAPL`) |
+
+##### Response fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `symbol` | string | The requested ticker symbol |
+| `logo_url` | string | HTTPS URL to the company's logo image (PNG or SVG) |
+| `width` | integer \| null | Image width in pixels (if available) |
+| `height` | integer \| null | Image height in pixels (if available) |
+
+##### Example request
 
 ```bash
-curl -X GET "$BASE_URL/assets/TSLA" \
-  -H "Authorization: Basic $AUTH"
+curl https://api.tappengine.com/v1/marketdata/logos/AAPL \
+  -H "Authorization: Bearer $TAPP_API_KEY"
 ```
 
-## Real-time quotes
+##### Example response
 
-Get the latest bid, ask, and last-trade price for any asset:
-
-```bash
-curl -X GET "$BASE_URL/market-data/assets/AAPL/quote" \
-  -H "Authorization: Basic $AUTH"
+```json
+{
+  "symbol": "AAPL",
+  "logo_url": "https://cdn.quotemedia.com/logos/AAPL.png",
+  "width": 200,
+  "height": 200
+}
 ```
 
-Use real-time quotes to:
+> **Usage tip:** Cache logo URLs on your end — they are stable and don't change frequently. Avoid fetching logos on every page render; retrieve once per symbol and store the URL.
 
-- Display current prices in your UI
-- Calculate portfolio market value
-- Show pre-trade price estimates for order tickets
+---
 
-## Historical bars (OHLCV)
+### Common errors
 
-Retrieve open, high, low, close, and volume data for chart rendering or backtesting:
+| HTTP Status | Error | Cause |
+|-------------|-------|-------|
+| `400` | `INVALID_SYMBOL` | Symbol format is not recognized |
+| `400` | `INVALID_DATE_RANGE` | `excludingTo` used without `excludingFrom`, or dates are malformed |
+| `404` | `SYMBOL_NOT_FOUND` | No data found for this symbol |
+| `404` | `LOGO_NOT_AVAILABLE` | No logo is on file for this symbol |
 
-```bash
-curl -X GET "$BASE_URL/market-data/assets/AAPL/bars?timeframe=1Day&start=2025-01-01&end=2025-06-15" \
-  -H "Authorization: Basic $AUTH"
-```
+---
 
-### Timeframes
+### Next steps
 
-Choose the granularity that matches your use case:
+- [Company Profile & Fundamentals →](/guides/operations/market-data) — Add market cap, P/E, and financial statements
+- [Real-Time & Historical Prices →](/guides/operations/market-data) — Pair news with live price data
+- [Reference Data →](/guides/operations/market-data) — Browse the full equity universe by sector or symbol list
 
-| Value | Description |
-| --- | --- |
-| `1Min` | 1-minute bars (intraday) |
-| `5Min` | 5-minute bars (intraday) |
-| `15Min` | 15-minute bars (intraday) |
-| `1Hour` | Hourly bars |
-| `1Day` | Daily bars |
-| `1Week` | Weekly bars |
-| `1Month` | Monthly bars |
+Updated 3 months ago
 
-<Note>
-  Intraday bars (`1Min`, `5Min`, `15Min`) are only available for recent history. Use `1Day` or larger timeframes for multi-year ranges.
-</Note>
+---
 
-## Chart data
+## Reference Data
 
-The chart endpoint returns pre-formatted data ready for plotting, using a simplified period syntax instead of explicit date ranges:
+The TAPP Engine Reference Data endpoints provide programmatic access to the platform's complete equity universe. These endpoints enable developers to build search features, sector-based screeners, watchlist browsers, and onboarding flows.
 
-```bash
-# 1 month of daily data
-curl -X GET "$BASE_URL/assets/chart?symbol=AAPL&timeframe=1Day&period=1M" \
-  -H "Authorization: Basic $AUTH"
+### Available Endpoints
 
-# 1 year of weekly data
-curl -X GET "$BASE_URL/assets/chart?symbol=AAPL&timeframe=1Week&period=1Y" \
-  -H "Authorization: Basic $AUTH"
-```
+Five primary endpoints serve different discovery needs:
 
-## Market snapshots
+1. **Equity Security Master** (`POST /v1/marketdata/reference/equity-security-master`) — Returns paginated listings of all tradeable equities with pagination support via `limit` and `offset` parameters.
 
-A snapshot bundles the current quote, latest bar, and previous close into a single response — ideal when you need all three data points at once:
+2. **Symbol Details** (`POST /v1/marketdata/reference/symbol-details`) — Delivers bulk metadata for specific symbols in a single request, useful for watchlist loading.
 
-```bash
-curl -X GET "$BASE_URL/market-data/assets/AAPL/snapshot" \
-  -H "Authorization: Basic $AUTH"
-```
+3. **Sector Symbols** (`POST /v1/marketdata/reference/sector-symbols`) — Retrieves all tradeable symbols within a designated sector.
 
-Snapshots are particularly useful for building asset detail pages that show current price, daily change percentage, and trading volume without making multiple sequential requests.
+4. **List Sectors** (`GET /v1/marketdata/reference/sectors`) — Provides all recognized sector names as valid inputs for other endpoints.
 
-## Market status
+5. **List Industries** (`GET /v1/marketdata/reference/industries`) — Returns industry classifications that subdivide sectors for granular filtering.
 
-### Check if a market is open
+### Key Response Fields
 
-Query the status of a specific market exchange to determine whether trading is currently active:
+Equity records include symbol, company name, exchange, asset type, CUSIP, ISIN, and tradeable status. The symbol-details response uses a keyed-by-symbol object structure, while list endpoints return arrays.
 
-```bash
-curl -X GET "$BASE_URL/market-data/markets/XNYS/status" \
-  -H "Authorization: Basic $AUTH"
-```
+### Error Handling
 
-Use the market status response to:
+Common HTTP 400 errors include `INVALID_SECTOR` (unrecognized sector name), `SYMBOLS_REQUIRED` (missing symbols array), and `TOO_MANY_SYMBOLS` (exceeding submission limits).
 
-- Show **Market Open** / **Market Closed** indicators in your UI
-- Disable order placement outside market hours for `day` orders
-- Display a countdown timer to market open or close
-
-### Trading calendar
-
-Retrieve open and close times, early closes, and holidays for any date range:
-
-```bash
-curl -X GET "$BASE_URL/market-data/markets/XNYS/calendar?start=2025-06-01&end=2025-06-30" \
-  -H "Authorization: Basic $AUTH"
-```
-
-### Market codes
-
-| Code | Market |
-| --- | --- |
-| `XNYS` | New York Stock Exchange (NYSE) |
-| `XNAS` | NASDAQ |
-
-## Building a stock detail page
-
-A complete asset detail page typically needs the current quote, price history for a chart, and a snapshot for the daily summary stats. Use `Promise.all` to fetch them concurrently and minimize load time:
-
-```javascript
-const [quote, bars, snapshot] = await Promise.all([
-  fetch(`${baseUrl}/market-data/assets/${symbol}/quote`, { headers }),
-  fetch(`${baseUrl}/market-data/assets/${symbol}/bars?timeframe=1Day&start=${oneYearAgo}&end=${today}`, { headers }),
-  fetch(`${baseUrl}/market-data/assets/${symbol}/snapshot`, { headers })
-]);
-```
-
-With those three responses, you can render: current price, daily change, a one-year price chart, volume, and the 52-week range — all from a single parallel fetch.
+All endpoints require Bearer token authentication and support JSON request bodies to accommodate complex filtering without URL length constraints.

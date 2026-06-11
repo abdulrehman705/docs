@@ -1,0 +1,51 @@
+---
+title: "Order Cancel Request <F>"
+sidebarTitle: "Order Cancel Request <F>"
+description: "How to cancel all remaining quantity on an existing order through the TAPP Engine FIX Gateway."
+---
+
+## Overview
+The Order Cancel Request message (MsgType = "F") enables cancellation of all remaining quantity on an existing order within the TAPP Engine FIX Gateway.
+
+## Key Warning
+"A cancel request may be rejected if the order is already filled, expired, or in a non-cancellable state." Monitor for either confirmation via Execution Report or denial via Order Cancel Reject.
+
+## Required Fields
+
+| Tag | Field | Description | Type |
+|-----|-------|-------------|------|
+| 1 | Account | Trading account identifier | String |
+| 11 | ClOrdID | Unique identifier for cancel request | String |
+| 37 | OrderId | OrderId from the gateway | String |
+| 41 | OrigClOrdID | ClOrdID of order being cancelled | String |
+| 48 | SecurityID | Security identifier (numeric) | Numeric |
+| 55 | Symbol | Security symbol in uppercase | String |
+| 60 | TransactTime | Transaction timestamp | UTCTimestamp |
+| 167 | SecurityType | Type: CS (stock), OPT (option), MLEG (multileg) | String |
+
+## Optional Fields
+
+| Tag | Field | Description |
+|-----|-------|-------------|
+| 54 | Side | Must match original order's side (1=Buy, 2=Sell) |
+
+## Message Examples
+
+**Equity Order Cancellation:**
+```
+8=FIX.4.4|35=F|49=CLIENT1|56=TAPPENGINE|11=CXL-20260212-001|1=ACC123456789|37=TAPP-78450|41=ORD-20260212-001|55=AAPL|167=CS|54=1|60=20260212-15:00:00.000|10=034|
+```
+
+**Option Order Cancellation:**
+```
+8=FIX.4.4|35=F|49=CLIENT1|56=TAPPENGINE|11=CXL-20260212-002|1=ACC123456789|37=TAPP-78451|41=ORD-20260212-003|55=AAPL|167=OPT|54=1|60=20260212-15:00:00.000|10=056|
+```
+
+**Multileg Order Cancellation:**
+```
+8=FIX.4.4|35=F|49=CLIENT1|56=TAPPENGINE|11=CXL-20260212-003|1=ACC123456789|37=TAPP-78460|41=MLEG-20260212-001|55=AAPL|167=MLEG|54=1|60=20260212-15:00:00.000|10=078|
+```
+
+## REST Alternatives
+- Single-leg: `POST /api/external/cancel?OrderCode={code}&AccountNo={acct}`
+- Multi-leg: `POST /api/Order/CancelMultiLegOrder` (JSON body)

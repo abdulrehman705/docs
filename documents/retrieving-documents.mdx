@@ -1,0 +1,36 @@
+---
+title: "Retrieving Documents"
+sidebarTitle: "Retrieving Documents"
+description: "How to discover supported document types and query or filter system-generated brokerage documents with pagination."
+---
+
+## Overview
+
+The TAPP Engine documentation describes two endpoints for managing brokerage documents. The platform stores "system-generated brokerage documents — account statements, trade confirmations, and tax forms" and provides access through discovery and retrieval endpoints.
+
+## Available Endpoints
+
+| Method | Path | Purpose |
+|--------|------|---------|
+| GET | `/v1/documents/types` | Discover supported document classifications |
+| POST | `/v1/documents/list` | Query and filter documents with pagination |
+
+## Document Type Discovery
+
+The GET endpoint returns a catalog of recognized document types. Each type has an `id` field used as a filter parameter in subsequent requests. The example response shows three document categories: Account Statement, Trade Confirmation, and Tax Document.
+
+## Document Retrieval
+
+The POST endpoint accepts optional filtering parameters:
+- `limit` and `offset` for pagination (defaults: 25 and 0)
+- `documentTypeID`, `accountNumber`, `month`, `year`, and `date` for filtering
+- All filter fields accept `null` or can be omitted to remove that filter
+
+The response includes document objects with URL, account number, type, and date fields, plus metadata showing limit, offset, and total count.
+
+## Error Handling
+
+Common HTTP status codes include:
+- `400` for invalid parameter values
+- `401` for missing/invalid API keys
+- `500` for server failures

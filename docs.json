@@ -144,6 +144,39 @@
         ]
       },
       {
+        "tab": "FIX Gateway",
+        "groups": [
+          {
+            "group": "FIX Gateway",
+            "pages": [
+              "fix-gateway/fix-gateway-overview",
+              "fix-gateway/session-protocol",
+              "fix-gateway/new-order-single-d",
+              "fix-gateway/new-order-multileg-ab",
+              "fix-gateway/order-cancel-request-f",
+              "fix-gateway/order-status-request-h",
+              "fix-gateway/execution-report-8",
+              "fix-gateway/order-cancel-reject-9",
+              "fix-gateway/business-message-reject-j",
+              "fix-gateway/dollar-amount-fractional-orders"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Documents",
+        "groups": [
+          {
+            "group": "Documents",
+            "pages": [
+              "documents/documents-overview",
+              "documents/retrieving-documents",
+              "documents/emailing-documents"
+            ]
+          }
+        ]
+      },
+      {
         "tab": "Changelog",
         "icon": "clock-rotate-left",
         "pages": [

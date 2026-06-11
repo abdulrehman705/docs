@@ -1,125 +1,206 @@
 ---
-title: "KYC Document Verification: Upload & Track Identity Docs"
+title: "KYC Document Verification"
 sidebarTitle: "KYC Verification"
-description: "Upload identity documents for KYC verification, track approval status via polling or webhooks, and handle document rejections with re-upload flows."
+description: "Upload compliance and identity documents to a brokerage account for KYC review, plus programmatic W-9 form generation for U.S. persons."
 ---
 
-After creating an account, your user must verify their identity by uploading a government-issued ID. This guide walks you through uploading a document, tracking its verification status, and handling rejections so users can re-submit without friction.
+The document upload endpoint allows you to submit compliance and identity documents directly to a TAPP brokerage account. This is used during account onboarding when a user's KYC (Know Your Customer) review requires supporting documentation, and during ongoing account maintenance for remediation requests or regulatory requirements.
 
-## Upload flow
+Uploaded documents are associated with the specified account and routed to the appropriate compliance workflow.
 
-<Steps>
-  <Step title="Upload a document">
-    Send the document file as a multipart form upload. Include the `account_id`, the `purpose`, the `document_type`, and the file itself.
+---
 
-    ```bash
-    curl -X POST "$BASE_URL/documents" \
-      -H "Authorization: Basic $AUTH" \
-      -F "account_id=$INVESTOR_ID" \
-      -F "purpose=kyc" \
-      -F "document_type=id_verification" \
-      -F "file=@/path/to/id-document.jpg"
-    ```
+## Endpoint
 
-    **Accepted formats:** JPEG, PNG, PDF (max 10 MB)
+| Method | Path | Description |
+|--------|------|-------------|
+| `POST` | `/v1/accounts/{accountId}/documents/upload` | Upload a compliance document to an account |
 
-    | `document_type` | When to use |
-    |----------------|-------------|
-    | `id_verification` | Government-issued photo ID — **required for all accounts** |
-    | `proof_of_address` | Utility bill or bank statement — only if requested |
-    | `tax_document` | W-9 or equivalent — only if requested |
+---
 
-    <Tip>
-      Instruct users to photograph their ID in good lighting with all four corners visible. Blurry or cropped images are the most common cause of rejection.
-    </Tip>
-  </Step>
+## Upload a document
 
-  <Step title="Track verification status">
-    Buildmarkets reviews the document asynchronously. Use polling or webhooks to detect when review is complete.
+Accepts a Base64-encoded file along with its document type classification. The platform processes the upload and associates it with the account for compliance review.
 
-    <Tabs>
-      <Tab title="Webhooks (recommended)">
-        Subscribe to `document.approved` and `document.rejected` events. Buildmarkets calls your endpoint as soon as the review finishes — no polling loop needed.
+### `POST /v1/accounts/{accountId}/documents/upload`
 
-        ```bash
-        curl -X POST "$BASE_URL/webhooks" \
-          -H "Authorization: Basic $AUTH" \
-          -H "Content-Type: application/json" \
-          -d '{
-            "url": "https://your-app.com/webhooks/bluum",
-            "events": ["document.approved", "document.rejected"]
-          }'
-        ```
-      </Tab>
-      <Tab title="Polling">
-        Fetch the document by ID to check its current `upload_status`. Poll every 5–10 seconds until the status is terminal.
+#### Path parameters
 
-        ```bash
-        curl -X GET "$BASE_URL/documents/$DOCUMENT_ID" \
-          -H "Authorization: Basic $AUTH"
-        ```
-      </Tab>
-    </Tabs>
-  </Step>
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `accountId` | string (UUID) | ✅ | The TAPP account to attach the document to |
 
-  <Step title="Handle the result">
-    Act on the document's final status to move your user forward or prompt them to re-upload.
+#### Request body
 
-    | Status | What to do |
-    |--------|-----------|
-    | `approved` | Proceed to bank linking and funding |
-    | `rejected` | Display the rejection reason and prompt the user to upload a replacement |
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `document_type` | string | ✅ | Classification of the document. See supported types below |
+| `document_sub_type` | string | ❌ | Free-form sub-classification (e.g., `"passport"`, `"drivers_license"`, `"utility_bill"`) |
+| `content` | string | Conditional | Base64-encoded binary content of the document. Required for all types except `w8ben`. Maximum size: 10MB |
+| `content_data` | object | Conditional | JSON form data. Used **only** for `w8ben` document type in place of `content` |
+| `mime_type` | string | ❌ | MIME type of the uploaded file (e.g., `"image/png"`, `"image/jpeg"`, `"application/pdf"`) |
 
-    <Note>
-      There is no limit on upload attempts. Allow users to re-submit as many times as needed.
-    </Note>
-  </Step>
-</Steps>
+#### Supported `document_type` values
 
-## Handling rejections
+| Value | Description |
+|-------|-------------|
+| `identity_verification` | Government-issued photo ID (passport, driver's license, national ID) |
+| `address_verification` | Proof of address (utility bill, bank statement, lease) |
+| `date_of_birth_verification` | Document verifying date of birth |
+| `tax_id_verification` | Document verifying Social Security Number or ITIN |
+| `account_approval_letter` | Approval letter for account opening |
+| `cip_result` | Customer Identification Program result document |
+| `w8ben` | IRS Form W-8BEN (Certificate of Foreign Status) — submitted as `content_data` JSON, not Base64 |
+| `w9` | IRS Form W-9 (Request for Taxpayer Identification) |
+| `company_formation` | Certificate of incorporation or equivalent |
+| `entity_operating_document` | Operating agreement or bylaws (for entity accounts) |
+| `entity_registration` | State registration filing |
+| `hio_declaration_form` | Household/Immediate Office declaration form |
+| `limited_trading_authorization` | Authorization for a third party to trade on the account |
+| `pep_declaration_form` | Politically Exposed Person declaration |
 
-When a document is rejected, the API response includes a human-readable `rejection_reason`. Display this directly to your user so they know exactly what to fix.
+#### Response
 
-```json
-{
-  "document_id": "doc_a1b2c3d4e5f6g7h8",
-  "upload_status": "rejected",
-  "rejection_reason": "Document is expired"
-}
-```
+Returns `204 No Content` on success. No body is returned.
 
-**Common rejection reasons:**
+---
 
-- Document is blurry or illegible
-- Document is expired
-- Name doesn't match account identity
-- Document type not recognized
+## Example requests
 
-Show the `rejection_reason` in your UI alongside a prompt to upload a new document. Reuse the same upload flow from Step 1.
-
-## Listing documents
-
-Retrieve all documents associated with an account, optionally filtered by status:
+### Identity verification — passport (image)
 
 ```bash
-# All documents for an account
-curl -X GET "$BASE_URL/documents" \
-  -H "Authorization: Basic $AUTH"
+# First, Base64-encode your file
+ENCODED=$(base64 -i passport_scan.png)
 
-# Filter to approved documents only
-curl -X GET "$BASE_URL/documents?status=approved" \
-  -H "Authorization: Basic $AUTH"
+curl -X POST https://api.tappengine.com/v1/accounts/b3d9f1a2-4c7e-4f0b-9e2d-1a2b3c4d5e6f/documents/upload \
+  -H "Authorization: Bearer $TAPP_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d "{
+    \"document_type\": \"identity_verification\",
+    \"document_sub_type\": \"passport\",
+    \"content\": \"$ENCODED\",
+    \"mime_type\": \"image/png\"
+  }"
 ```
 
-## Sandbox behavior
+### Address verification — utility bill (PDF)
 
-<Note>
-  In the sandbox environment, all document uploads are auto-approved within seconds. To test rejection flows, use the specific test values documented in your Buildmarkets dashboard.
-</Note>
+```bash
+ENCODED=$(base64 -i utility_bill.pdf)
+
+curl -X POST https://api.tappengine.com/v1/accounts/b3d9f1a2-4c7e-4f0b-9e2d-1a2b3c4d5e6f/documents/upload \
+  -H "Authorization: Bearer $TAPP_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d "{
+    \"document_type\": \"address_verification\",
+    \"document_sub_type\": \"utility_bill\",
+    \"content\": \"$ENCODED\",
+    \"mime_type\": \"application/pdf\"
+  }"
+```
+
+### W-8BEN — JSON form data
+
+The `w8ben` document type accepts form data as a JSON object in `content_data` rather than a Base64-encoded file. The structure mirrors the IRS W-8BEN form fields.
+
+```bash
+curl -X POST https://api.tappengine.com/v1/accounts/b3d9f1a2-4c7e-4f0b-9e2d-1a2b3c4d5e6f/documents/upload \
+  -H "Authorization: Bearer $TAPP_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "document_type": "w8ben",
+    "content_data": {
+      "name": "Maria García",
+      "country_of_citizenship": "Mexico",
+      "permanent_address": "123 Calle Principal, Ciudad de México, MX 06600",
+      "mailing_address": "123 Calle Principal, Ciudad de México, MX 06600",
+      "date_of_birth": "1985-04-12",
+      "foreign_tax_id": "GARM850412XXX",
+      "treaty_country": "Mexico",
+      "treaty_article": "10",
+      "withholding_rate": "10",
+      "income_type": "Dividends",
+      "signature_date": "2026-03-24"
+    }
+  }'
+```
+
+### Response
+
+```
+HTTP/1.1 204 No Content
+```
+
+---
+
+## File size and format limits
+
+| Constraint | Limit |
+|-----------|-------|
+| Maximum file size | 10MB per upload |
+| Supported image types | `image/png`, `image/jpeg`, `image/gif`, `image/webp` |
+| Supported document types | `application/pdf` |
+| Encoding | Base64 (standard encoding, no line breaks required) |
+
+> **Tip:** If you're encoding in JavaScript, use `Buffer.from(fileBuffer).toString('base64')`. In Python, use `base64.b64encode(file_bytes).decode('utf-8')`.
+
+---
+
+## Common errors
+
+| HTTP Status | Error | Cause |
+|-----------|-------|-------|
+| `400` | `INVALID_DOCUMENT_TYPE` | `document_type` is not one of the supported values |
+| `400` | `CONTENT_REQUIRED` | `content` is missing for a non-`w8ben` document type |
+| `400` | `CONTENT_DATA_REQUIRED` | `content_data` is missing for the `w8ben` document type |
+| `400` | `FILE_TOO_LARGE` | Decoded file exceeds the 10MB size limit |
+| `400` | `INVALID_MIME_TYPE` | The `mime_type` is not supported |
+| `404` | `ACCOUNT_NOT_FOUND` | No account found for the provided `accountId` |
+
+---
 
 ## Next steps
 
-Once KYC is approved:
+* [W-9 Requests →](/guides/self-directed/kyc-verification) — Generate W-9 forms programmatically for a user
+* [Retrieving Documents →](/documents/retrieving-documents) — Access documents that have been generated for an account
+* [Account Opening →](/guides/self-directed/account-onboarding) — Review the KYC fields collected at account creation
 
-- [Link a bank account](/guides/self-directed/bank-linking) to enable ACH deposits and withdrawals
-- [Make a deposit](/guides/self-directed/deposits-withdrawals) to fund the account before trading
+Updated 3 months ago
+
+---
+
+## W-9 Requests Documentation
+
+### Overview
+
+The W-9 endpoint enables automated generation of IRS Form W-9 (Request for Taxpayer Identification Number and Certification) for specified users. As the documentation states, "W-9s are required for U.S. persons and entities to certify their taxpayer identification number."
+
+### Key Endpoint
+
+**POST** `/v1/documents/w9` — Initiates W-9 generation for a user
+
+### Request Details
+
+The endpoint requires a single query parameter:
+- `userId` (string, UUID format) — The unique identifier for the user
+
+**Important:** The userId passes as a query parameter, not in the request body. No request payload is needed.
+
+### Response Structure
+
+A successful request (200 OK) returns:
+- `successful` (boolean) — Confirms request acceptance
+- `message` (string) — Status confirmation text
+
+### Processing Timeline
+
+The endpoint confirms immediate receipt, but form generation occurs asynchronously. Users can later retrieve the completed W-9 using the document listing endpoint with `documentTypeID: 3` and the relevant year.
+
+### Error Scenarios
+
+Common failures include invalid/malformed UUIDs (400), missing API credentials (401), non-existent users (404), and server-side failures (500).
+
+### Generation vs. Upload
+
+Two distinct workflows exist: using this endpoint to generate forms from stored data, or uploading pre-signed documents users complete independently.

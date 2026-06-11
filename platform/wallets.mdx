@@ -1,152 +1,33 @@
 ---
-title: "Wallets: Cash Balances, Holds & Transaction Ledger"
+title: "Wallets"
 sidebarTitle: "Wallets"
-description: "Understand how Buildmarkets wallets hold cash for investment accounts. Covers wallet types, money flow, holds, balance fields, transaction types, and the ledger."
+description: "Retrieve account balances and positions once an account is ACTIVE, including buying power, equity, settlement timing, and field definitions."
 ---
 
-A **Wallet** holds the cash balance for an investment account. Deposits flow into the wallet, buy orders debit from it, sell proceeds return to it, and withdrawals send funds back to the user's bank. Every account gets USD, NGN, and KES wallets automatically when it is created — you don't need to create them manually.
+## Overview
 
-## Wallet Types
-
-Buildmarkets supports three wallet types depending on your integration model:
-
-| Type | Balance source | Best for |
-|---|---|---|
-| **Hosted** | Buildmarkets manages the balance directly | Most integrations — Buildmarkets tracks all cash movements |
-| **BYO (Bring Your Own)** | Your system provides the balance via an endpoint you expose | Partners who maintain their own ledger |
-| **Omnibus** | Computed from an immutable double-entry ledger | Partners who need a full, auditable transaction trail |
-
-<Note>
-  Most integrations use the **Hosted** wallet type. BYO and Omnibus are available for partners with specific operational or regulatory requirements — contact Buildmarkets to enable these modes.
-</Note>
-
-## How Money Flows
-
-Money moves through the wallet at each stage of the investment lifecycle:
-
-```text
-Bank Account ──deposit──► Wallet ──buy order──► Positions
-                            ▲                      │
-                            │                      │
-                        sell order ◄───────────────┘
-                            │
-                     ──withdrawal──► Bank Account
-```
-
-<Steps>
-  <Step title="Deposit">
-    Money enters the wallet from the user's linked bank account. The wallet balance increases once the transfer is received.
-  </Step>
-  <Step title="Buy order">
-    When the user places a buy order, Buildmarkets places a **hold** on the wallet to reserve the required funds. The available balance decreases; the held amount shows in `reserved_balance`.
-  </Step>
-  <Step title="Sell order">
-    When a sell order fills, the proceeds are credited back to the wallet. The available balance increases.
-  </Step>
-  <Step title="Withdrawal">
-    Money leaves the wallet and is transferred to the user's bank account. The wallet balance decreases.
-  </Step>
-</Steps>
-
-## Wallet Holds
-
-When a user places a buy order, Buildmarkets creates a **hold** on the wallet to reserve funds for the trade. This prevents the same funds from being used for two operations simultaneously.
-
-| Hold status | Meaning |
-|---|---|
-| `ACTIVE` | Funds are reserved — the order is in progress |
-| `RELEASED` | The order was canceled and the reserved funds are back in `available_balance` |
-| `CAPTURED` | The order filled and the reserved funds were debited from the wallet |
-| `EXPIRED` | The hold expired because the order timed out |
-
-## Balance Fields
-
-The wallet exposes three balance fields that always satisfy the equation below:
-
-| Field | Description |
-|---|---|
-| `balance` | The total wallet balance — the sum of available and reserved amounts |
-| `available_balance` | The portion of the balance available for new trades or withdrawals |
-| `reserved_balance` | The portion of the balance currently held by active orders |
-
-```text
-balance = available_balance + reserved_balance
-```
-
-<Warning>
-  Always use `available_balance` — not `balance` — when checking whether a user has sufficient funds to place an order or initiate a withdrawal. Using `balance` can lead to over-spending if there are active holds.
-</Warning>
-
-## Transaction Types
-
-Every wallet operation creates an immutable transaction record. Use these records to build activity feeds and reconcile balances:
-
-| Transaction type | Description |
-|---|---|
-| `deposit` | Funds received from the user's bank account |
-| `withdrawal` | Funds sent to the user's bank account |
-| `buy` | Funds debited from the wallet for an executed order |
-| `sell` | Proceeds credited to the wallet after an order fill |
-| `fee` | Trading commission or platform fee deducted from the wallet |
-
-## Code Examples
-
-<CodeGroup>
-
-```bash Get Wallet Details
-curl -X GET "$BASE_URL/investors/$INVESTOR_ID/wallets" \
-  -H "Authorization: Basic $AUTH"
-```
-
-```bash Get Transaction History
-curl -X GET "$BASE_URL/investors/$INVESTOR_ID/transactions" \
-  -H "Authorization: Basic $AUTH"
-```
-
-</CodeGroup>
-
-### Example Wallet Response
-
-```json
-{
-  "id": "wlt_01j8abc123",
-  "investor_id": "inv_01j8xyz789",
-  "currency": "USD",
-  "balance": "5000.00",
-  "available_balance": "3500.00",
-  "reserved_balance": "1500.00",
-  "created_at": "2024-01-15T10:00:00Z"
-}
-```
-
-### Example Transaction Response
-
-```json
-{
-  "transactions": [
-    {
-      "id": "txn_01j8def456",
-      "type": "deposit",
-      "amount": "5000.00",
-      "currency": "USD",
-      "status": "completed",
-      "created_at": "2024-01-15T10:05:00Z"
-    },
-    {
-      "id": "txn_01j8ghi789",
-      "type": "buy",
-      "amount": "-1500.00",
-      "currency": "USD",
-      "status": "completed",
-      "created_at": "2024-01-15T11:20:00Z"
-    }
-  ]
-}
-```
+Describes how to retrieve account financial data once an account reaches `ACTIVE` status. These endpoints support portfolio dashboards, buying-power validation, and position management interfaces.
 
 ## Key Endpoints
 
-| Method | Path | Description |
-|---|---|---|
-| `GET` | `/investors/{investor_id}/wallets` | Get wallet details and current balance |
-| `GET` | `/investors/{investor_id}/transactions` | List wallet transactions |
+**Get Account Balances** — `GET /v1/accounts/{accountId}/balances` — Returns current cash and equity information.
+
+**List All Open Positions** — `GET /v1/accounts/{accountId}/positions` — Returns securities with non-zero quantities.
+
+**Get Single Position** — `GET /v1/accounts/{accountId}/positions/{symbol}` — Returns 404 if no position exists for that symbol.
+
+## Balance Field Definitions
+
+The response includes: total cash, settled/unsettled cash components, buying power, equity value, long market value, previous close equity, portfolio value, and timestamp.
+
+## Position Field Definitions
+
+Position data encompasses: ticker symbol, asset class, share quantity, average entry price, side (long), market value, cost basis, unrealized gain/loss in dollars and percentage, current price, prior day close, and intraday change metrics.
+
+## Settlement Timing
+
+ACH deposits require 1–3 business days to settle in production (instant in sandbox). Equity sale proceeds settle T+1. Unsettled funds appear separately and don't count toward buying power.
+
+## Practical Recommendations
+
+Combine balances and positions endpoints with market data services to build dashboards, and compare estimated order costs against available buying power before presenting confirmation screens.

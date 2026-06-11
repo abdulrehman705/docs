@@ -1,0 +1,31 @@
+---
+title: "Dollar Amount & Fractional Orders"
+sidebarTitle: "Dollar & Fractional Orders"
+description: "How the FIX Gateway supports dollar-amount notional orders and fractional share quantities, both as Market orders only."
+---
+
+## Overview
+
+The TAPP Engine FIX Gateway enables two specialized order types for more flexible trading.
+
+### Dollar Amount Orders
+
+These orders let you specify a dollar value instead of share quantity. Key requirements: Tag 38 (OrderQty) must be `0`; Tag 40 (OrdType) must be `1` (Market only); Tag 152 (CashOrderQty) contains the dollar amount. "When `OrderQty=0` and `CashOrderQty` is set, the gateway converts the dollar amount into the appropriate share" quantity using current market pricing. A $100 order on a $228 stock would execute as approximately 0.4386 shares.
+
+**Example message:**
+```
+8=FIX.4.4|35=D|49=CLIENT1|56=BROKERX|11=ORD12345|55=AAPL|54=1|38=0|40=1|60=20250430-14:22:30.000|152=100|10=123|
+```
+
+### Fractional Orders
+
+These accept decimal share quantities in Tag 38 (OrderQty), such as `0.5` for half a share. Market order type (`OrdType=1`) is required.
+
+**Example message:**
+```
+8=FIX.4.4|35=D|49=CLIENT1|56=BROKERX|11=ORD12345|55=AAPL|54=1|38=0.5|40=1|60=20250430-14:22:30.000|10=123|
+```
+
+## Constraints
+
+Both order types must be Market orders only — Limit, Stop, and Stop Limit orders are not supported. The REST API offers equivalent functionality through the `OrderQuantity` parameter.

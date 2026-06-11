@@ -1,190 +1,78 @@
 ---
-title: "Trading — Place & Manage Orders | Buildmarkets API"
+title: "Trading"
 sidebarTitle: "Trading"
-description: "Buy and sell securities through the Buildmarkets API. Covers order types, time-in-force, order lifecycle, placing orders, commissions, and client order IDs."
+description: "Place, modify, cancel, and list equity and ETF orders, with order types, time-in-force options, lifecycle states, and idempotency."
 ---
 
-Trading lets your users buy and sell securities through the Buildmarkets API. You submit an order, Buildmarkets routes it to the appropriate exchange via the custodian network, and you receive real-time status updates as the order moves through its lifecycle.
+## Introduction
 
-## Order types
+The Trading APIs enable you to place, modify, cancel, and list orders, plus view execution reports and transaction history. TAPP Engine supports **equity and ETF orders** with market and limit order types.
 
-Choose the order type that matches your user's intent. Each type controls how and when execution happens.
+## Trading Endpoints
 
-| Type | Description | Required fields |
-|---|---|---|
-| `market` | Execute immediately at the current market price | `qty` or `notional` |
-| `limit` | Execute only at the specified price or better | `qty`, `limit_price` |
-| `stop` | Trigger a market order when the price hits the stop level | `qty`, `stop_price` |
-| `stop_limit` | Trigger a limit order when the price hits the stop level | `qty`, `stop_price`, `limit_price` |
-| `trailing_stop` | Stop price trails the market price by a fixed amount or percentage | `qty`, `trail_price` or `trail_percent` |
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `POST` | `/v1/accounts/{accountId}/orders` | Place a new order |
+| `GET` | `/v1/accounts/{accountId}/orders` | List all orders for an account |
+| `GET` | `/v1/accounts/{accountId}/orders/{orderId}` | Get order details |
+| `PATCH` | `/v1/accounts/{accountId}/orders/{orderId}` | Modify an open order |
+| `DELETE` | `/v1/accounts/{accountId}/orders/{orderId}` | Cancel an open order |
+| `GET` | `/v1/accounts/{accountId}/orders/{orderId}/executions` | Get execution reports (fills) |
 
-## Order sides
+## Supported Asset Classes
 
-| Side | Description |
-|---|---|
-| `buy` | Purchase shares |
-| `sell` | Sell shares you own |
+`equity` (Individual stocks — NYSE, NASDAQ, CBOE-listed) and `etf` (Exchange-traded funds).
 
-## Quantity vs notional
+> **Note:** "Options, fixed income, and crypto are not currently supported through the REST Trading API."
 
-You can specify order size in two ways:
+## Order Types
 
-- **`qty`** — Number of shares to trade (e.g., `"10"` for exactly 10 shares).
-- **`notional`** — Dollar amount to invest (e.g., `"1000.00"` to put exactly $1,000 to work).
+`market` — Executes immediately at the best available price (requires `symbol`, `side`, `quantity` or `notional`). `limit` — Executes only at the specified price or better (requires `limit_price`).
 
-<Note>
-Notional orders may result in fractional share purchases when the dollar amount doesn't divide evenly into whole shares. Notional sizing is only available for `market` orders and requires the asset to be `fractionable`.
-</Note>
+## Time-in-Force Options
 
-## Time in force
+| `time_in_force` | Description |
+|-----------------|-------------|
+| `day` | Active for the current trading day only. Cancels at market close if unfilled. |
+| `gtc` | Good Till Cancelled. Remains active until filled or manually cancelled. |
+| `opg` | Market-on-open. Executes at the opening auction price. |
+| `cls` | Market-on-close. Executes at the closing auction price. |
+| `ioc` | Immediate or Cancel. Fills whatever is immediately available; cancels the rest. |
+| `fok` | Fill or Kill. Fills the entire quantity immediately or cancels the entire order. |
 
-Time-in-force controls how long an order remains active if it isn't immediately filled.
+## Quantity vs. Notional
 
-| Value | Meaning |
-|---|---|
-| `day` | Valid for the current trading day. Canceled at market close if unfilled. |
-| `gtc` | Good 'til canceled. Remains active across sessions until filled or explicitly canceled. |
-| `ioc` | Immediate or cancel. Fill what you can right now, cancel the rest. |
-| `fok` | Fill or kill. Fill the entire order immediately, or cancel it entirely. |
+Share-based uses `quantity` (e.g., `"quantity": "10"` — buy exactly 10 shares). Dollar-based uses `notional` (e.g., `"notional": "500.00"` — buy $500 worth). "Use `notional` for fractional-share-like dollar-cost averaging experiences." Do not send both `quantity` and `notional` in the same request.
 
-## Order lifecycle
+## Extended Hours Trading
 
-Orders move through a defined set of statuses from submission to completion. The diagram below shows the normal flow.
-
-```
-accepted → filled
-    │         │
-    │    partially_filled
-    │
-canceled / rejected
-```
-
-| Status | Meaning |
-|---|---|
-| `accepted` | Order received and queued for execution |
-| `partially_filled` | Some shares executed; remainder still active |
-| `filled` | Order fully executed |
-| `canceled` | Order canceled by user or system |
-| `rejected` | Order rejected (insufficient funds, invalid symbol, or market closed) |
-
-<Tip>
-Subscribe to `order.*` webhooks to receive status changes in real time instead of polling the orders endpoint.
-</Tip>
-
-## Placing an order
-
-To place an order, send a `POST` request to the investor's orders endpoint with the required fields for your chosen order type.
-
-<Steps>
-  <Step title="Choose your order type and side">
-    Decide whether to use `market`, `limit`, `stop`, `stop_limit`, or `trailing_stop`, and set `side` to `buy` or `sell`.
-  </Step>
-  <Step title="Set the size">
-    Provide either `quantity` (number of shares) or `notional` (dollar amount). Use `notional` only with `market` orders.
-  </Step>
-  <Step title="Submit the request">
-    Send the request with your `Authorization` header and wait for the response containing the new order ID and initial status.
-  </Step>
-</Steps>
-
-<CodeGroup>
-```bash Market order (quantity)
-curl -X POST "$BASE_URL/investors/$INVESTOR_ID/orders" \
-  -H "Authorization: Basic $AUTH" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "symbol": "AAPL",
-    "side": "buy",
-    "type": "market",
-    "time_in_force": "day",
-    "quantity": "10"
-  }'
-```
-
-```bash Limit order with commission
-curl -X POST "$BASE_URL/investors/$INVESTOR_ID/orders" \
-  -H "Authorization: Basic $AUTH" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "symbol": "MSFT",
-    "side": "buy",
-    "type": "limit",
-    "quantity": "5",
-    "limit_price": "350.00",
-    "time_in_force": "gtc",
-    "client_order_id": "my-order-001",
-    "commission": "1.00",
-    "commission_type": "notional"
-  }'
-```
-</CodeGroup>
-
-### Response
-
-A successful request returns `201 Created` with the new order object:
+Set `extended_hours: true` to allow execution during pre-market (4:00 AM–9:30 AM ET) and after-market (4:00 PM–8:00 PM ET) sessions. Extended hours trading is only supported for `limit` orders with `time_in_force: day`.
 
 ```json
-{
-  "id": "ord_x9y8z7a6b5c4d3e2",
-  "symbol": "AAPL",
-  "quantity": "10",
-  "side": "buy",
-  "type": "market",
-  "time_in_force": "day",
-  "status": "pending",
-  "filled_quantity": "0",
-  "average_price": "0.00",
-  "submitted_at": "2025-06-15T14:30:00Z"
-}
+{ "symbol": "AAPL", "asset_class": "equity", "order_type": "limit", "side": "buy", "quantity": "5", "limit_price": "180.00", "time_in_force": "day", "extended_hours": true }
 ```
 
-## Market hours
+## Order Lifecycle
 
-US equity markets are open Monday–Friday, **9:30 AM – 4:00 PM Eastern Time**, excluding public holidays.
+Orders transition through these states: `pending_new` → `new` → `partially_filled` → `filled`. Terminal/branch states include `canceled`, `cancel_pending`, `rejected`, and `expired`.
 
-- Market orders placed outside market hours are queued and execute at the next open.
-- Limit and stop orders with `gtc` remain active across sessions.
-- Use the [Assets & Market Data](/platform/assets) endpoints to check current market status and the trading calendar.
+| State | Description |
+|-------|-------------|
+| `pending_new` | Order received by TAPP Engine; being submitted to the market |
+| `new` | Order accepted by the exchange/market |
+| `partially_filled` | Some shares filled; remainder still working |
+| `filled` | Order is fully executed |
+| `canceled` | Order was cancelled (by you or by the exchange) |
+| `cancel_pending` | Cancel request submitted, awaiting confirmation |
+| `rejected` | Order was rejected (e.g., insufficient funds, invalid symbol) |
+| `expired` | Day order reached end of session unfilled, or IOC/FOK not immediately filled |
 
-<Warning>
-Orders submitted when markets are closed will not execute until the next session opens. Always check market status before placing time-sensitive orders.
-</Warning>
+## Idempotency with `client_order_id`
 
-## Commission and fees
+"Always include a `client_order_id` — a unique string you generate — on every order request." If your request times out and you retry, TAPP Engine returns the existing order rather than creating a duplicate. Recommended pattern: `{userId}-{symbol}-{action}-{date}-{sequence}`.
 
-Attach a commission to any order to charge your users a fee. Commission fields are optional — when included, they appear in the order response.
+## Next Steps
 
-| Field | Type | Description |
-|---|---|---|
-| `commission` | string | Commission amount (e.g., `"1.00"`) |
-| `commission_type` | string | Calculation method: `notional` (per order, default), `qty` (per share, pro-rated), or `bps` (basis points, up to 2 decimal places) |
-
-## Client order IDs
-
-Use `client_order_id` to attach your own identifier to an order for reconciliation with your internal systems. The value must be unique per order within your tenant.
-
-```json
-{
-  "symbol": "MSFT",
-  "side": "buy",
-  "type": "limit",
-  "quantity": "5",
-  "limit_price": "350.00",
-  "time_in_force": "gtc",
-  "client_order_id": "my-order-001",
-  "commission": "1.00",
-  "commission_type": "notional"
-}
-```
-
-<Tip>
-`client_order_id` can also serve as an idempotency mechanism for orders — if you retry an order submission with the same `client_order_id`, you can detect the duplicate in your reconciliation logic. For stronger guarantees, also include an `Idempotency-Key` header (see [Idempotency](/platform/idempotency)).
-</Tip>
-
-## Key endpoints
-
-| Method | Path | Description |
-|---|---|---|
-| `POST` | `/investors/{investor_id}/orders` | Place an order |
-| `GET` | `/investors/{investor_id}/orders` | List all orders for an investor |
-| `GET` | `/trading/orders/{order_id}` | Get order details by order ID |
+- Placing Orders — Full request schema and code examples for all order types
+- Order Types & Parameters — Deep dive on each order type and when to use it
+- Webhooks Overview — Get notified when orders fill or change state

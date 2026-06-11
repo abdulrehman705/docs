@@ -1,0 +1,68 @@
+---
+title: "Execution Report <8>"
+sidebarTitle: "Execution Report <8>"
+description: "How the gateway confirms order receipt, fills, cancellations, status, and rejections via the receive-only Execution Report."
+---
+
+## Overview
+
+The Execution Report is a receive-only FIX message (MsgType = `"8"`) sent by the gateway to confirm order receipt, relay fill information, confirm cancellations, report order status, and communicate rejections.
+
+## Field Layout
+
+| Tag | Field | Description | Req'd | Type | Values |
+|-----|-------|-------------|-------|------|--------|
+| 1 | Account | Trading account | Y | String | |
+| 6 | AvgPx | Average fill price across all fills | N | Price | |
+| 11 | ClOrdID | Client's order identifier | Y | String | |
+| 14 | CumQty | Total quantity filled so far | Y | Qty | |
+| 17 | ExecId | Execution ID assigned by the gateway | Y | String | |
+| 19 | ExecRefID | Reference ID for Trade Cancel / Trade Correct | N | String | |
+| 31 | LastPx | Price of this (last) fill | N | Price | |
+| 32 | LastQty | Quantity of this (last) fill | N | Qty | |
+| 37 | OrderId | OrderId assigned by the gateway | Y | String | |
+| 38 | OrderQty | Original order quantity | Y | Qty | |
+| 39 | OrdStatus | Current order status | N | Char | See table below |
+| 40 | OrdType | Order type | Y | Char | `1`=Market, `2`=Limit, `3`=Stop, `4`=Stop Limit |
+| 41 | OrigClOrdID | Original ClOrdID (for cancel/replace) | C | String | |
+| 44 | Price | Price per unit (if fill reported) | N | Price | |
+| 54 | Side | Order side | Y | Char | `1`=Buy, `2`=Sell |
+| 55 | Symbol | Security symbol | Y | String | |
+| 58 | Text | Free-text description / rejection reason | N | String | |
+| 59 | TimeInForce | Time-in-force | Y | Char | `0`=Day, `1`=GTC |
+| 60 | TransactTime | Transaction timestamp | Y | UTCTimestamp | |
+| 103 | OrdRejReason | Rejection reason code | N | Int | See table below |
+| 150 | ExecType | Execution type (what happened) | N | Char | See table below |
+| 151 | LeavesQty | Remaining quantity to fill | N | Qty | |
+| 167 | SecurityType | Security type | N | String | `CS`, `OPT`, `MLEG` |
+
+## OrdStatus Values (Tag 39)
+
+`0`=New, `1`=Partially Filled, `2`=Filled, `3`=Done for Day, `4`=Canceled, `5`=Replaced, `6`=Pending Cancel, `7`=Stopped, `8`=Rejected, `9`=Suspended, `A`=Pending New, `B`=Calculated, `C`=Expired, `D`=Accepted for Bidding, `E`=Pending Replace.
+
+## ExecType Values (Tag 150)
+
+`0`=New (acknowledged), `1`=Partial Fill, `2`=Fill, `3`=Done for Day, `4`=Canceled, `5`=Replace, `6`=Pending Cancel, `7`=Stopped, `8`=Rejected, `9`=Suspended, `A`=Pending New, `B`=Calculated, `C`=Expired, `D`=Restated, `E`=Pending Replace, `F`=Trade (partial fill or fill), `G`=Trade Correct, `H`=Trade Cancel, `I`=Order Status (response to status request).
+
+## OrdRejReason Values (Tag 103)
+
+`0`=Broker/Exchange option, `1`=Unknown symbol, `2`=Exchange closed, `3`=Order exceeds limit, `4`=Too late to enter, `5`=Unknown order, `6`=Duplicate order (duplicate ClOrdID), `7`=Duplicate of verbally communicated order, `8`=Stale order, `9`=Trade along required, `10`=Invalid investor ID, `11`=Unsupported order characteristic, `12`=Surveillance option, `13`=Incorrect quantity, `14`=Incorrect allocated quantity, `15`=Unknown account(s), `99`=Other.
+
+## Example — Order Acknowledged
+```
+8=FIX.4.4|35=8|49=TAPPENGINE|56=CLIENT1|1=ACC123456789|11=ORD-20260212-001|37=TAPP-78450|17=EXEC-001|55=AAPL|167=CS|54=1|38=100|40=1|39=0|150=0|14=0|151=100|59=0|60=20260212-14:30:00.500|10=067|
+```
+
+## Example — Partial Fill
+```
+8=FIX.4.4|35=8|49=TAPPENGINE|56=CLIENT1|1=ACC123456789|11=ORD-20260212-001|37=TAPP-78450|17=EXEC-002|55=AAPL|167=CS|54=1|38=100|40=1|39=1|150=F|31=228.50|32=60|14=60|151=40|6=228.50|59=0|60=20260212-14:30:01.200|10=089|
+```
+
+## Example — Order Rejected
+```
+8=FIX.4.4|35=8|49=TAPPENGINE|56=CLIENT1|1=ACC123456789|11=ORD-20260212-005|37=TAPP-78455|17=EXEC-010|55=XYZ|167=CS|54=1|38=100|40=1|39=8|150=8|14=0|151=0|103=1|58=Unknown symbol|59=0|60=20260212-14:31:00.000|10=034|
+```
+
+## REST Equivalent
+
+Order status and fill data is available via `POST /api/external/get-orders` and `POST /api/Blotter/GetBlotterOrderInfo`. FIX audit logs are available via `GET /api/Blotter/OrderFixLogs`.

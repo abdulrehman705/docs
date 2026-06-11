@@ -1,152 +1,316 @@
 ---
-title: "Deposits & Withdrawals: Fund Accounts and Move Money"
+title: "Deposits & Withdrawals"
 sidebarTitle: "Deposits & Withdrawals"
-description: "Fund investment accounts via ACH or manual bank transfer, track deposit and withdrawal statuses, cancel pending withdrawals, and handle idempotency safely."
+description: "Initiate ACH deposits and withdrawals against an approved relationship, track transfer status, and query funding activity history for reconciliation."
 ---
 
-Once a user's bank account is linked, you can move money into and out of their investment wallet. This guide covers ACH deposits, manual bank transfers, status tracking, withdrawals, and the idempotency rules you must follow to prevent duplicate transfers.
+Once a user has an [approved ACH relationship](/guides/self-directed/bank-linking), they can move money between their external bank account and their TAPP brokerage account. TAPP exposes two endpoints for this:
 
-## Deposit methods
+*   **Deposits** (`POST .../funding/deposits`) — pull funds from the bank into the brokerage account
+*   **Withdrawals** (`POST .../funding/withdrawals`) — push settled cash from the brokerage account back to the bank
 
-### ACH via Plaid
+Both transfer types are ACH-based and subject to standard ACH settlement timelines. All amounts must be expressed as strings with exactly two decimal places (e.g., `"1000.00"`).
 
-Pull funds directly from a linked bank account using ACH. This is the fastest path — funds typically settle within 1–3 business days. Requires a [linked bank account](/guides/self-directed/bank-linking).
+## Transfer lifecycle
+
+All deposits and withdrawals progress through the same status states. You can track these via the [Funding Activity](/guides/self-directed/deposits-withdrawals) endpoints or by listening to webhook events.
+
+```
+      POST deposit/withdrawal
+             │
+      ┌──────▼──────┐
+      │             │
+      │   PENDING   │  ◄─── Transfer submitted to ACH network
+      │             │
+      └──────┬──────┘
+             │  ACH initiated
+      ┌──────▼──────┐
+      │             │
+      │  QUEUED /   │  ◄─── Sent to clearing; awaiting settlement
+      │  SENT       │
+      │             │
+      └──────┬──────┘
+             │
+        ┌────┴────┐
+        │         │
+    ┌───▼───┐ ┌──▼──────┐
+    │       │ │         │
+    │SETTLED│ │RETURNED │  ◄─── NSF, closed account, or bank rejection
+    │       │ │         │
+    └───────┘ └─────────┘
+```
+
+| Status | Description |
+|--------|-------------|
+| `PENDING` | Transfer has been submitted and is awaiting ACH initiation |
+| `QUEUED` | Transfer has been queued for the next ACH batch |
+| `SENT` | Transfer has been sent to the ACH network and is in transit |
+| `SETTLED` | Funds have successfully moved; transfer is complete |
+| `RETURNED` | The ACH transfer was returned by the bank (e.g., NSF, closed account) |
+| `CANCELLED` | Transfer was cancelled before clearing |
+
+> **Settlement timing:** "Standard ACH deposits typically settle in 1–3 business days. TAPP may apply **instant buying power** for deposits up to a configured limit, allowing users to trade before funds fully settle."
+
+## Endpoints
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `POST` | `/v1/accounts/{accountId}/funding/deposits` | Initiate an ACH deposit into the brokerage account |
+| `POST` | `/v1/accounts/{accountId}/funding/withdrawals` | Initiate an ACH withdrawal from the brokerage account |
+
+## Initiate a deposit
+
+Pulls funds from the user's external bank account into their TAPP brokerage account. The specified ACH relationship must be in `APPROVED` status.
+
+### `POST /v1/accounts/{accountId}/funding/deposits`
+
+#### Path parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `accountId` | string (UUID) | ✅ | The TAPP account to deposit funds into |
+
+#### Request body
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `ach_relationship_id` | string (UUID) | ✅ | ID of an `APPROVED` ACH relationship to pull funds from |
+| `amount` | string | ✅ | Dollar amount to deposit. Must match pattern `^\d+\.\d{2}$` (e.g., `"1000.00"`) |
+| `description` | string | ❌ | Optional memo visible in funding activity (e.g., `"Initial deposit"`) |
+
+#### Response body (`201 Created`)
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | string (UUID) | Unique identifier for this funding activity record |
+| `account_id` | string (UUID) | The TAPP account receiving the funds |
+| `ach_relationship_id` | string (UUID) | The ACH relationship used for this transfer |
+| `type` | string | `DEPOSIT` |
+| `amount` | string | Dollar amount transferred (e.g., `"1000.00"`) |
+| `status` | string | Initial status: `PENDING` |
+| `description` | string \| null | Memo provided at creation |
+| `created_at` | string (ISO 8601) | Timestamp when the deposit was initiated |
+| `updated_at` | string (ISO 8601) | Timestamp of the last status change |
+| `settled_at` | string (ISO 8601) \| null | Timestamp when funds fully settled; null until `SETTLED` |
+
+#### Example request
 
 ```bash
-curl -X POST "$BASE_URL/investors/$INVESTOR_ID/deposits" \
-  -H "Authorization: Basic $AUTH" \
+curl -X POST https://api.tappengine.com/v1/accounts/b3d9f1a2-4c7e-4f0b-9e2d-1a2b3c4d5e6f/funding/deposits \
+  -H "Authorization: Bearer $TAPP_API_KEY" \
   -H "Content-Type: application/json" \
-  -H "Idempotency-Key: dep-$(uuidgen)" \
   -d '{
-    "amount": "5000.00",
-    "currency": "USD",
-    "method": "ach",
-    "description": "Initial funding",
-    "plaid_options": {
-      "item_id": "item_abc123",
-      "investor_id": "inv_1234567890"
-    }
+    "ach_relationship_id": "e7f2a1b3-9c4d-4e0f-8a1b-2c3d4e5f6a7b",
+    "amount": "2500.00",
+    "description": "Initial deposit"
   }'
 ```
 
-### Manual bank transfer
-
-Instruct the user to send a wire or bank transfer to a Buildmarkets-provided account. Use this when the user doesn't have a linked Plaid account or prefers to initiate the transfer themselves.
-
-```bash
-curl -X POST "$BASE_URL/investors/$INVESTOR_ID/deposits" \
-  -H "Authorization: Basic $AUTH" \
-  -H "Content-Type: application/json" \
-  -H "Idempotency-Key: dep-$(uuidgen)" \
-  -d '{
-    "amount": "5000.00",
-    "currency": "USD",
-    "method": "manual_bank_transfer",
-    "description": "Wire transfer funding"
-  }'
-```
-
-The response includes bank details and a unique reference code. Display all of this to your user — they must include the reference code in their transfer memo so Buildmarkets can match the incoming funds to the correct deposit.
+#### Example response
 
 ```json
 {
-  "method_details": {
-    "referenceCode": "BLUUM-ABC123XY",
-    "bankDetails": {
-      "bankName": "Choice Financial Group",
-      "accountName": "Buildmarkets, Inc.",
-      "routingNumber": "091311229",
-      "accountNumber": "202534766488",
-      "instructions": "Include reference code \"BLUUM-ABC123XY\" in your transfer memo."
-    }
-  },
-  "expires_at": "2025-06-22T10:45:00.000Z"
+  "id": "f1a2b3c4-d5e6-7f8a-9b0c-d1e2f3a4b5c6",
+  "account_id": "b3d9f1a2-4c7e-4f0b-9e2d-1a2b3c4d5e6f",
+  "ach_relationship_id": "e7f2a1b3-9c4d-4e0f-8a1b-2c3d4e5f6a7b",
+  "type": "DEPOSIT",
+  "amount": "2500.00",
+  "status": "PENDING",
+  "description": "Initial deposit",
+  "created_at": "2026-03-15T11:00:00Z",
+  "updated_at": "2026-03-15T11:00:00Z",
+  "settled_at": null
 }
 ```
 
-<Warning>
-  The manual transfer deposit expires at `expires_at`. If funds are not received by that time, the deposit record is voided and a new one must be created.
-</Warning>
+## Initiate a withdrawal
 
-## Tracking deposit status
+Pushes settled cash from the user's TAPP brokerage account back to their external bank account. Only **settled** cash can be withdrawn — unsettled funds from recent trades or pending deposits are not eligible.
 
-Fetch the deposit to check its current status:
+### `POST /v1/accounts/{accountId}/funding/withdrawals`
+
+#### Path parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `accountId` | string (UUID) | ✅ | The TAPP account to withdraw funds from |
+
+#### Request body
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `ach_relationship_id` | string (UUID) | ✅ | ID of an `APPROVED` ACH relationship to push funds to |
+| `amount` | string | Conditional | Dollar amount to withdraw. Required unless `withdraw_full_balance` is `true`. Pattern: `^\d+\.\d{2}$` |
+| `withdraw_full_balance` | boolean | ❌ | If `true`, withdraws the entire settled cash balance. Omit `amount` when using this flag |
+| `description` | string | ❌ | Optional memo (e.g., `"Monthly withdrawal"`) |
+| `fee_amount` | string | ❌ | Optional processing fee to deduct in addition to `amount`. Pattern: `^\d+\.\d{2}$` |
+
+#### IRA-specific fields
+
+For IRA accounts, additional fields are required to classify the distribution for tax reporting purposes.
+
+| Field | Type | Required for IRA | Description |
+|-------|------|------------------|-------------|
+| `ira_distribution_type` | string | ✅ | Classification of the IRA distribution (e.g., `"NORMAL"`, `"PREMATURE"`) |
+| `ira_tax_code` | string | ✅ | IRS tax code for the distribution |
+| `ira_year` | integer | ✅ | Tax year to attribute the distribution to (e.g., `2026`) |
+| `ira_federal_withholding` | string | ❌ | Federal income tax withholding amount. Pattern: `^\d+\.\d{2}$` |
+| `ira_state_withholding` | string | ❌ | State income tax withholding amount. Pattern: `^\d+\.\d{2}$` |
+| `ira_state` | string | ❌ | 2-letter state code for withholding (e.g., `"TX"`). Required if `ira_state_withholding` is set |
+
+#### Response body (`201 Created`)
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | string (UUID) | Unique identifier for this funding activity record |
+| `account_id` | string (UUID) | The TAPP account funds are being withdrawn from |
+| `ach_relationship_id` | string (UUID) | The ACH relationship receiving the funds |
+| `type` | string | `WITHDRAWAL` |
+| `amount` | string | Dollar amount withdrawn (e.g., `"500.00"`) |
+| `fee_amount` | string \| null | Fee amount if provided |
+| `status` | string | Initial status: `PENDING` |
+| `description` | string \| null | Memo provided at creation |
+| `created_at` | string (ISO 8601) | Timestamp when the withdrawal was initiated |
+| `updated_at` | string (ISO 8601) | Timestamp of the last status change |
+| `settled_at` | string (ISO 8601) \| null | Timestamp when funds settled at the destination bank |
+
+#### Example request — standard withdrawal
 
 ```bash
-curl -X GET "$BASE_URL/investors/$INVESTOR_ID/deposits/$DEPOSIT_ID" \
-  -H "Authorization: Basic $AUTH"
-```
-
-| Status | Meaning | What to do next |
-|--------|---------|-----------------|
-| `pending` | Created, not yet initiated | Wait, or cancel if needed |
-| `processing` | ACH initiated with the bank | Wait |
-| `received` | Funds received, currently settling | Wait |
-| `completed` | Funds are in the wallet and ready to trade | Allow order placement |
-| `failed` | Transfer failed | Check `failure_reason` in the response, then retry |
-
-<Tip>
-  Subscribe to `transfer.deposit.*` webhook events instead of polling. Buildmarkets sends a real-time notification on every status transition, which is more efficient and reduces API load.
-</Tip>
-
-## Withdrawals
-
-Withdraw funds from the investment wallet to a linked bank account:
-
-```bash
-curl -X POST "$BASE_URL/investors/$INVESTOR_ID/withdrawals" \
-  -H "Authorization: Basic $AUTH" \
+curl -X POST https://api.tappengine.com/v1/accounts/b3d9f1a2-4c7e-4f0b-9e2d-1a2b3c4d5e6f/funding/withdrawals \
+  -H "Authorization: Bearer $TAPP_API_KEY" \
   -H "Content-Type: application/json" \
-  -H "Idempotency-Key: wdr-$(uuidgen)" \
   -d '{
-    "amount": "1000.00",
-    "currency": "USD",
-    "method": "ach",
-    "description": "Withdrawal to checking",
-    "plaid_options": {
-      "item_id": "item_abc123",
-      "investor_id": "inv_1234567890"
-    }
+    "ach_relationship_id": "e7f2a1b3-9c4d-4e0f-8a1b-2c3d4e5f6a7b",
+    "amount": "500.00",
+    "description": "Monthly withdrawal"
   }'
 ```
 
-### Withdrawal statuses
+#### Example response
 
-| Status | Meaning |
-|--------|---------|
-| `pending` | Created — can still be canceled |
-| `processing` | ACH initiated with the bank |
-| `submitted` | Submitted to the receiving bank |
-| `completed` | Funds delivered to the user's bank |
-| `failed` | Transfer failed |
-
-### Canceling a withdrawal
-
-Only `pending` withdrawals can be canceled. Once a withdrawal reaches `processing`, it can no longer be stopped.
-
-```bash
-curl -X POST "$BASE_URL/investors/$INVESTOR_ID/withdrawals/$WITHDRAWAL_ID/cancel" \
-  -H "Authorization: Basic $AUTH"
+```json
+{
+  "id": "c4d5e6f7-a8b9-0c1d-2e3f-4a5b6c7d8e9f",
+  "account_id": "b3d9f1a2-4c7e-4f0b-9e2d-1a2b3c4d5e6f",
+  "ach_relationship_id": "e7f2a1b3-9c4d-4e0f-8a1b-2c3d4e5f6a7b",
+  "type": "WITHDRAWAL",
+  "amount": "500.00",
+  "fee_amount": null,
+  "status": "PENDING",
+  "description": "Monthly withdrawal",
+  "created_at": "2026-03-15T14:00:00Z",
+  "updated_at": "2026-03-15T14:00:00Z",
+  "settled_at": null
+}
 ```
 
-## Idempotency
-
-Always include a unique `Idempotency-Key` header on every deposit and withdrawal request. If a request fails due to a network timeout or other transient error, you can safely retry it with the same key — Buildmarkets will return the original response without creating a duplicate transfer.
+#### Example request — withdraw full balance
 
 ```bash
--H "Idempotency-Key: dep-unique-operation-id"
+curl -X POST https://api.tappengine.com/v1/accounts/b3d9f1a2-4c7e-4f0b-9e2d-1a2b3c4d5e6f/funding/withdrawals \
+  -H "Authorization: Bearer $TAPP_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "ach_relationship_id": "e7f2a1b3-9c4d-4e0f-8a1b-2c3d4e5f6a7b",
+    "withdraw_full_balance": true,
+    "description": "Account liquidation"
+  }'
 ```
 
-<Warning>
-  Never reuse an idempotency key for a different operation. Using the same key with a different request body returns a `BLUM-409-*` error. Generate a new key (e.g., a UUID) for each distinct transfer.
-</Warning>
+#### Example request — IRA distribution
 
-See [Idempotency](/platform/idempotency) for best practices on key generation and retry strategies.
+```bash
+curl -X POST https://api.tappengine.com/v1/accounts/b3d9f1a2-4c7e-4f0b-9e2d-1a2b3c4d5e6f/funding/withdrawals \
+  -H "Authorization: Bearer $TAPP_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "ach_relationship_id": "e7f2a1b3-9c4d-4e0f-8a1b-2c3d4e5f6a7b",
+    "amount": "1000.00",
+    "ira_distribution_type": "NORMAL",
+    "ira_tax_code": "7",
+    "ira_year": 2026,
+    "ira_federal_withholding": "100.00",
+    "ira_state_withholding": "50.00",
+    "ira_state": "CA"
+  }'
+```
 
-## Error handling
+## Common errors
 
-| Error code | Cause | Resolution |
-|-----------|-------|-----------|
-| `BLUM-400-*` | Invalid amount or missing fields | Review the request body against the API reference |
-| `BLUM-422-*` | Insufficient funds (withdrawal) | Check the wallet balance before submitting the withdrawal |
-| `BLUM-409-*` | Duplicate idempotency key with a different request body | Generate a new idempotency key for each distinct operation |
+| HTTP Status | Error | Cause |
+|-------------|-------|-------|
+| `400` | `INVALID_AMOUNT` | Amount does not match the `^\d+\.\d{2}$` pattern, or is zero |
+| `400` | `AMOUNT_REQUIRED` | Neither `amount` nor `withdraw_full_balance` was provided |
+| `400` | `INVALID_IRA_FIELDS` | IRA distribution fields are incomplete or contain invalid values |
+| `404` | `ACCOUNT_NOT_FOUND` | The `accountId` does not exist or is inaccessible |
+| `404` | `ACH_RELATIONSHIP_NOT_FOUND` | The `ach_relationship_id` does not exist for this account |
+| `409` | `ACH_RELATIONSHIP_NOT_APPROVED` | The referenced ACH relationship is not in `APPROVED` status |
+| `422` | `INSUFFICIENT_FUNDS` | Withdrawal amount exceeds settled cash balance |
+| `422` | `ACCOUNT_NOT_ACTIVE` | The TAPP account is not in `ACTIVE` status |
+
+## Webhook events
+
+Subscribe to these events to track transfer status in real time without polling.
+
+| Event | Fired when |
+|-------|-----------|
+| `funding.deposit.pending` | Deposit has been accepted and is queued for ACH |
+| `funding.deposit.settled` | Deposit has fully cleared and funds are available |
+| `funding.deposit.returned` | Deposit was returned by the bank |
+| `funding.withdrawal.pending` | Withdrawal has been accepted and is queued for ACH |
+| `funding.withdrawal.settled` | Withdrawal has fully cleared at the destination bank |
+| `funding.withdrawal.returned` | Withdrawal was returned by the bank |
+
+See [Webhook Events Reference](/guides/operations/webhook-setup) for full payload schemas.
+
+## Next steps
+
+*   [Funding Activity →](/guides/self-directed/deposits-withdrawals) — Query and filter the history of all transfers on an account
+*   [ACH Relationships →](/guides/self-directed/bank-linking) — Set up the bank link required before initiating transfers
+*   [Webhooks Overview →](/platform/webhooks) — Receive real-time notifications as transfer status changes
+
+Updated 3 months ago
+
+---
+
+## Funding Activity
+
+The funding activity endpoints provide a comprehensive, auditable record of all ACH transfers on a brokerage account—including deposits, withdrawals, fees, and bank returns. These tools enable transaction history interfaces, account reconciliation, and transfer status investigation.
+
+### Available Endpoints
+
+Two primary endpoints exist:
+
+1. **List all funding activity**: `GET /v1/accounts/{accountId}/funding/activity`
+2. **Retrieve single record**: `GET /v1/accounts/{accountId}/funding/activity/{activityId}`
+
+### Listing Funding Activity
+
+The list endpoint returns paginated results ordered by most recent first. Required parameters include the account UUID. Optional query filters include:
+
+- `status`: Transfer state (PENDING, QUEUED, SENT, SETTLED, RETURNED, CANCELLED)
+- `type`: DEPOSIT or WITHDRAWAL
+- `start_date` and `end_date`: ISO 8601 date ranges
+- `page` and `per_page`: Pagination controls (default 25, max 100 per page)
+
+Response objects contain transfer identification, amounts, status transitions, descriptions, and ACH return codes when applicable.
+
+### Single Record Retrieval
+
+This endpoint accepts an account ID and activity ID, returning complete details about that specific transfer—particularly useful for checking current status or examining return codes for rejected transfers.
+
+### ACH Return Codes
+
+The system uses standard NACHA codes when transfers are rejected. Common examples include:
+
+- "R01" (Insufficient Funds)
+- "R02" (Account Closed)
+- "R03" (No Account/Unable to Locate)
+- "R10" (Customer Claims Unauthorized)
+
+Webhook events (`funding.deposit.returned` or `funding.withdrawal.returned`) notify applications when transfers fail, including both code and human-readable explanation.
+
+### Error Handling
+
+Common HTTP 404 responses indicate either missing account or activity records inaccessible to the API key.

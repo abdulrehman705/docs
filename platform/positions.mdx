@@ -1,154 +1,33 @@
 ---
-title: "Positions — Holdings, Cost Basis & P&L | Buildmarkets API"
+title: "Positions"
 sidebarTitle: "Positions"
-description: "Query investor positions in Buildmarkets. Understand cost basis, unrealized P&L, price confidence levels, and how positions update automatically as orders fill."
+description: "Retrieve account balances and open positions once an account is ACTIVE, including field definitions and settlement timing."
 ---
 
-A position represents an investor's holding in a specific asset — the quantity held, average cost basis, current market value, and unrealized profit or loss. Buildmarkets creates positions automatically when orders fill and updates them in real time as market prices change.
+## Overview
 
-## Position object
+Describes how to retrieve account financial data once an account reaches `ACTIVE` status. These endpoints support portfolio dashboards, buying-power validation, and position management interfaces.
 
-Every position contains the full picture of a holding at a point in time. Here is an example object:
+## Key Endpoints
 
-```json
-{
-  "id": "pos_a1b2c3d4-e5f6-7890-abcd-ef1234567890",
-  "investor_id": "inv_01j9x8m2k7qpzwv3t5r6y8n0ab",
-  "symbol": "AAPL",
-  "asset_id": "asset_9f8e7d6c-5b4a-3210-fedc-ba0987654321",
-  "currency": "USD",
-  "quantity": "10",
-  "average_cost_basis": "178.50",
-  "total_cost_basis": "1785.00",
-  "current_price": "182.30",
-  "market_value": "1823.00",
-  "unrealized_pl": "38.00",
-  "unrealized_pl_percent": "0.0213",
-  "price_source": "ALPACA",
-  "price_confidence": "REAL_TIME",
-  "price_timestamp": "2025-06-15T14:30:00Z",
-  "last_transaction_at": "2025-06-15T14:00:00Z",
-  "created_at": "2025-06-15T14:00:00Z",
-  "updated_at": "2025-06-15T14:30:00Z"
-}
-```
+**Get Account Balances** — `GET /v1/accounts/{accountId}/balances` — Returns current cash and equity information.
 
-### Field reference
+**List All Open Positions** — `GET /v1/accounts/{accountId}/positions` — Returns securities with non-zero quantities.
 
-<ResponseField name="id" type="string">
-  Unique position identifier.
-</ResponseField>
+**Get Single Position** — `GET /v1/accounts/{accountId}/positions/{symbol}` — Returns 404 if no position exists for that symbol.
 
-<ResponseField name="investor_id" type="string">
-  The investor that holds this position.
-</ResponseField>
+## Balance Field Definitions
 
-<ResponseField name="symbol" type="string">
-  Ticker symbol of the asset (e.g., `AAPL`).
-</ResponseField>
+The response includes: total cash, settled/unsettled cash components, buying power, equity value, long market value, previous close equity, portfolio value, and timestamp.
 
-<ResponseField name="asset_id" type="string">
-  Unique asset identifier — use this to look up full asset details via the Assets endpoint.
-</ResponseField>
+## Position Field Definitions
 
-<ResponseField name="currency" type="string">
-  ISO 4217 currency code (e.g., `USD`).
-</ResponseField>
+Position data encompasses: ticker symbol, asset class, share quantity, average entry price, side (long), market value, cost basis, unrealized gain/loss in dollars and percentage, current price, prior day close, and intraday change metrics.
 
-<ResponseField name="quantity" type="string">
-  Number of shares held. Can be fractional (e.g., `"2.5"`).
-</ResponseField>
+## Settlement Timing
 
-<ResponseField name="average_cost_basis" type="string">
-  Volume-weighted average purchase price per share across all buys.
-</ResponseField>
+ACH deposits require 1–3 business days to settle in production (instant in sandbox). Equity sale proceeds settle T+1. Unsettled funds appear separately and don't count toward buying power.
 
-<ResponseField name="total_cost_basis" type="string">
-  Total amount invested. Calculated as `quantity × average_cost_basis`.
-</ResponseField>
+## Practical Recommendations
 
-<ResponseField name="current_price" type="string">
-  Latest market price per share.
-</ResponseField>
-
-<ResponseField name="market_value" type="string">
-  Current value of the holding. Calculated as `quantity × current_price`.
-</ResponseField>
-
-<ResponseField name="unrealized_pl" type="string">
-  Unrealized profit or loss. Calculated as `market_value − total_cost_basis`.
-</ResponseField>
-
-<ResponseField name="unrealized_pl_percent" type="string">
-  Unrealized P&L expressed as a decimal percentage (e.g., `"0.0213"` = 2.13%).
-</ResponseField>
-
-<ResponseField name="price_source" type="string">
-  The data provider that supplied `current_price`. One of `ALPACA`, `NAYA`, `DATABASE`, or `UNAVAILABLE`.
-</ResponseField>
-
-<ResponseField name="price_confidence" type="string">
-  Freshness level of the price data. One of `REAL_TIME`, `DELAYED`, `END_OF_DAY`, `STALE`, or `UNAVAILABLE`.
-</ResponseField>
-
-<ResponseField name="price_timestamp" type="string">
-  ISO 8601 timestamp of when `current_price` was last updated.
-</ResponseField>
-
-<ResponseField name="last_transaction_at" type="string">
-  ISO 8601 timestamp of the most recent trade or corporate action that affected this position.
-</ResponseField>
-
-<ResponseField name="created_at" type="string">
-  ISO 8601 timestamp of when the position was first created.
-</ResponseField>
-
-<ResponseField name="updated_at" type="string">
-  ISO 8601 timestamp of the most recent update to the position record.
-</ResponseField>
-
-<Warning>
-When `price_confidence` is `STALE` or `UNAVAILABLE`, treat `market_value` and `unrealized_pl` as approximate. Display a staleness indicator to your users rather than presenting these values as precise.
-</Warning>
-
-## Querying positions
-
-Retrieve all positions for an investor, or fetch a single position by ID.
-
-<CodeGroup>
-```bash List all positions
-curl -X GET "$BASE_URL/investors/$INVESTOR_ID/positions" \
-  -H "Authorization: Basic $AUTH"
-```
-
-```bash Get a specific position
-curl -X GET "$BASE_URL/investors/$INVESTOR_ID/positions/$POSITION_ID" \
-  -H "Authorization: Basic $AUTH"
-```
-</CodeGroup>
-
-<Note>
-Buildmarkets returns one position object per asset per investor. If an investor holds both whole and fractional shares of the same symbol, they are combined into a single position.
-</Note>
-
-## How positions update
-
-Positions change automatically in response to trading activity, market data updates, and corporate actions. No additional API calls are required on your part.
-
-| Event | Effect on position |
-|---|---|
-| Buy order fills | Creates the position (if new) or increases `quantity`; recalculates `average_cost_basis` using volume-weighted average |
-| Sell order fills | Decreases `quantity`; removes the position entirely if the investor sells all shares |
-| Market price changes | Updates `current_price`, `market_value`, and `unrealized_pl` in real time |
-| Stock split | Adjusts `quantity` and `average_cost_basis` proportionally so `total_cost_basis` remains the same |
-
-<Tip>
-Subscribe to `order.filled` webhooks to know exactly when a position change occurs, rather than polling. See [Webhooks](/platform/webhooks) for setup instructions.
-</Tip>
-
-## Key endpoints
-
-| Method | Path | Description |
-|---|---|---|
-| `GET` | `/investors/{investor_id}/positions` | List all positions for an investor |
-| `GET` | `/investors/{investor_id}/positions/{position_id}` | Get a specific position by ID |
+Combine balances and positions endpoints with market data services to build dashboards, and compare estimated order costs against available buying power before presenting confirmation screens.

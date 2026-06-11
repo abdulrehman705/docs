@@ -1,0 +1,58 @@
+---
+title: "New Order Single <D>"
+sidebarTitle: "New Order Single <D>"
+description: "How to create new equity or single-leg option orders through the FIX Gateway using the New Order Single message."
+---
+
+## Overview
+
+The New Order Single message (MsgType = `"D"`) creates new equity or single-leg option orders through the FIX Gateway.
+
+## Field Layout
+
+| Tag | Field | Description | Required | Type | Values |
+|-----|-------|-------------|----------|------|--------|
+| 1 | Account | Trading account | Y | String | |
+| 11 | ClOrdID | Unique order identifier assigned by client | Y | String | |
+| 38 | OrderQty | Order quantity (contracts or shares) | Y | Qty | `0` for Dollar Amount orders |
+| 40 | OrdType | Order type | Y | Char | `1`=Market, `2`=Limit, `3`=Stop, `4`=Stop Limit |
+| 44 | Price | Limit price per unit | C | Price | Required when OrdType = 2 or 4 |
+| 48 | SecurityID | Security identifier (venue-specific) | N | String | |
+| 54 | Side | Order side | Y | Char | `1`=Buy, `2`=Sell |
+| 55 | Symbol | Security symbol (uppercase) | Y | String | e.g., `AAPL`, `MSFT` |
+| 59 | TimeInForce | Duration of order | Y | Char | `0`=Day, `1`=GTC |
+| 60 | TransactTime | Transaction timestamp | Y | UTCTimestamp | |
+| 76 | ExecBroker | Executing broker identifier | N | String | |
+| 99 | StopPx | Stop price | N | Price | Required when OrdType = 3 or 4 |
+| 152 | CashOrderQty | Dollar amount for notional orders | N | Numeric | See Dollar Amount Orders |
+| 167 | SecurityType | Instrument type | Y | String | `CS`=Common Stock, `OPT`=Option |
+| 200 | MaturityMonthYear | Option expiry year/month | N | MonthYear | Format: `YYYYMM` |
+| 201 | PutOrCall | Put or Call indicator | N | Int | `0`=Put, `1`=Call |
+| 202 | StrikePrice | Option strike price | N | Price | |
+| 205 | MaturityDay | Option expiry day of month | N | Int | 1–31 |
+
+## Examples
+
+### Equity Market Order — Buy 100 shares of AAPL at market
+```
+8=FIX.4.4|35=D|49=CLIENT1|56=TAPPENGINE|11=ORD-20260212-001|1=ACC123456789|55=AAPL|167=CS|54=1|38=100|40=1|59=0|60=20260212-14:30:00.000|10=123|
+```
+
+### Equity Limit Order — Buy 50 shares of MSFT at $420.00 limit, GTC
+```
+8=FIX.4.4|35=D|49=CLIENT1|56=TAPPENGINE|11=ORD-20260212-002|1=ACC123456789|55=MSFT|167=CS|54=1|38=50|40=2|44=420.00|59=1|60=20260212-14:30:00.000|10=045|
+```
+
+### Single-Leg Option Order — Buy 5 AAPL March 2026 $230 Call contracts at $4.50 limit
+```
+8=FIX.4.4|35=D|49=CLIENT1|56=TAPPENGINE|11=ORD-20260212-003|1=ACC123456789|55=AAPL|167=OPT|54=1|38=5|40=2|44=4.50|59=0|201=1|202=230.00|200=202603|205=20|60=20260212-14:30:00.000|10=067|
+```
+
+## Option Field Notes
+
+When `SecurityType=OPT`: **Tag 201 (PutOrCall)** — `0`=Put, `1`=Call (FIX convention differs from REST API); **Tag 200 (MaturityMonthYear)** — Format `YYYYMM` (e.g., `202603` for March 2026); **Tag 205 (MaturityDay)** — Day of expiration (e.g., `20`); **Tag 202 (StrikePrice)** — Decimal strike price.
+
+## REST Equivalent
+
+- Equity orders: `POST /api/external/create` with `SymbolType=1`
+- Option orders: `POST /api/external/create` with `SymbolType=2` and `OptionOrderLegs.*` parameters

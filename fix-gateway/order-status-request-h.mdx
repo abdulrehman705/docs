@@ -1,0 +1,34 @@
+---
+title: "Order Status Request <H>"
+sidebarTitle: "Order Status Request <H>"
+description: "How to request the current status of an order from the gateway, which responds with an Execution Report."
+---
+
+## Overview
+
+The Order Status Request message (MsgType = `"H"`) allows you to request the gateway to provide current status information for a specified order. The gateway responds with an Execution Report containing the order's present state.
+
+## Field Layout
+
+| Tag | Field | Description | Required | Type | Values |
+|-----|-------|-------------|----------|------|--------|
+| 1 | Account | Trading account | Y | String | |
+| 11 | ClOrdID | Unique identifier for this status request | Y | String | |
+| 37 | OrderId | OrderId assigned by the gateway | Y | String | |
+| 48 | SecurityID | Security identifier (if applicable) | N | Numeric | |
+| 54 | Side | Order side | Y | Char | `1`=Buy, `2`=Sell |
+| 55 | Symbol | Security symbol (uppercase) | Y | String | |
+| 167 | SecurityType | Security type | Y | String | `CS`=Common Stock, `OPT`=Option, `MLEG`=Multileg |
+
+## Example
+
+```
+8=FIX.4.4|35=H|49=CLIENT1|56=TAPPENGINE|11=STAT-20260212-001|1=ACC123456789|37=TAPP-78450|55=AAPL|167=CS|54=1|10=012|
+```
+
+The gateway responds with an Execution Report (MsgType=`"8"`) where `ExecType=I` (Order Status), containing the current order state.
+
+## REST Equivalents
+
+- `POST /api/external/get-orders` with `OrderCode` filter
+- `GET /api/Blotter/OrderLegs?orderCode={code}` for leg-level detail

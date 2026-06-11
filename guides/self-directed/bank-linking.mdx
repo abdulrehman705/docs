@@ -1,143 +1,232 @@
 ---
-title: "Link Your Bank Account via Plaid for ACH Transfers"
+title: "Link a Bank Account"
 sidebarTitle: "Bank Linking"
-description: "Connect a user's bank account using Plaid Link — create a link token, launch the Plaid SDK or hosted flow, then exchange the public token with Buildmarkets."
+description: "Create, list, and remove ACH relationships that link an external bank account to a TAPP brokerage account for deposits and withdrawals."
 ---
 
-Bank linking uses Plaid to securely connect the user's bank account for ACH deposits and withdrawals. The flow spans your frontend and backend: your server requests a link token from Buildmarkets, your frontend launches Plaid Link with that token, and then your backend exchanges the resulting public token with Buildmarkets to store the funding source.
+Before a user can move money into or out of their brokerage account, you must establish a trusted link between their TAPP account and an external bank account they own. That link is called an **ACH relationship**. It is the permanent, reusable funding rail that makes all subsequent deposits and withdrawals possible.
 
-## Flow overview
+An ACH relationship represents a verified connection to a specific external bank account — identified by routing number and account number. Once created and approved, the relationship can be used repeatedly for funding activity without re-entering bank credentials. A single TAPP account can hold multiple ACH relationships (e.g., a checking account and a savings account), but only **APPROVED** relationships can be used to initiate transfers.
 
-```text
-Your Frontend                    Your Backend                   Buildmarkets API
-     │                                │                            │
-     │  User clicks "Link Bank"       │                            │
-     │───────────────────────────────►│                            │
-     │                                │── POST link-token ────────►│
-     │                                │◄── { link_token } ─────────│
-     │◄── Open Plaid Link ───────────│                            │
-     │                                │                            │
-     │  User selects bank & logs in   │                            │
-     │                                │                            │
-     │── public_token ───────────────►│                            │
-     │                                │── POST connect ───────────►│
-     │                                │◄── { bank details } ───────│
-     │◄── "Bank linked!" ────────────│                            │
+## ACH relationship lifecycle
+
+When a relationship is created, it passes through a short verification workflow before becoming active. TAPP uses third-party instant verification in production — there are no micro-deposits.
+
+```
+                    ┌─────────────┐
+         POST       │             │
+  ──────────────►   │   PENDING   │
+                    │             │
+                    └──────┬──────┘
+                           │  Third-party verification
+              ┌────────────┴────────────┐
+              │                         │
+       ┌──────▼──────┐           ┌──────▼──────┐
+       │             │           │             │
+       │  APPROVED   │           │  REJECTED   │
+       │             │           │             │
+       └──────┬──────┘           └─────────────┘
+              │                   Create a new relationship
+              │  DELETE
+       ┌──────▼──────┐
+       │             │
+       │  CANCELLED  │  ◄─── Permanent; cannot be reactivated
+       │             │
+       └─────────────┘
 ```
 
-<Steps>
-  <Step title="Create a link token">
-    Your backend requests a link token from Buildmarkets. This token is short-lived and scoped to a single Plaid Link session.
+| Status | Description |
+|--------|-------------|
+| `PENDING` | Relationship submitted; verification in progress |
+| `APPROVED` | Verified and active — can be used for transfers |
+| `REJECTED` | Verification failed; a new relationship must be created |
+| `CANCELLED` | Permanently removed via DELETE; cannot be reactivated |
 
-    ```bash
-    curl -X POST "$BASE_URL/investors/$INVESTOR_ID/funding-sources/plaid/link-token" \
-      -H "Authorization: Basic $AUTH" \
-      -H "Content-Type: application/json" \
-      -d '{ "enable_hosted_link": false }'
-    ```
+> **Sandbox behavior:** In the sandbox environment, relationships transition from `PENDING` → `APPROVED` immediately upon creation. No third-party call is made.
 
-    **Response:**
+## Endpoints
 
-    ```json
-    {
-      "status": "success",
-      "data": {
-        "link_token": "link-sandbox-abc123def456",
-        "hosted_link_url": null
-      }
-    }
-    ```
+| Method | Path | Description |
+|--------|------|-------------|
+| `POST` | `/v1/accounts/{accountId}/ach-relationships` | Link a new bank account |
+| `GET` | `/v1/accounts/{accountId}/ach-relationships` | List all ACH relationships for an account |
+| `DELETE` | `/v1/accounts/{accountId}/ach-relationships/{achId}` | Remove an ACH relationship |
 
-    Pass the `link_token` value to your frontend to initialize Plaid Link.
+## Create an ACH relationship
 
-    <Note>
-      Set `"enable_hosted_link": true` if you prefer to redirect users to a Plaid-hosted URL rather than embedding the Plaid SDK. See the **Hosted Link** section below.
-    </Note>
-  </Step>
+Links an external bank account to the specified TAPP brokerage account. TAPP automatically attempts instant verification via a third-party bank data provider. If verification succeeds, the relationship moves to `APPROVED` without any manual review.
 
-  <Step title="Launch Plaid Link in your frontend">
-    Use the Plaid Link SDK with the token you received in Step 1. When the user completes the flow, Plaid calls `onSuccess` with a `public_token` — send that token to your backend immediately.
+Only the **last 4 digits** of the bank account number are stored after creation. The full number is never returned in any subsequent API response.
 
-    ```javascript
-    const { open } = usePlaidLink({
-      token: linkToken, // from Step 1
-      onSuccess: (publicToken, metadata) => {
-        // Send publicToken to your backend
-        exchangeToken(publicToken);
-      },
-      onExit: (err, metadata) => {
-        // User closed Plaid Link or an error occurred
-        console.log('Plaid Link exited', err);
-      }
-    });
-    ```
+### `POST /v1/accounts/{accountId}/ach-relationships`
 
-    Call `open()` in response to the user's "Link Bank Account" button click.
+#### Path parameters
 
-    ### Hosted Link alternative
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `accountId` | string (UUID) | ✅ | The TAPP account ID to link the bank account to |
 
-    If you set `"enable_hosted_link": true` in Step 1, the response includes a `hosted_link_url` instead. Redirect the user to that URL — no Plaid SDK installation required. This is useful for mobile webviews or simpler integrations where embedding the SDK is impractical.
+#### Request body
 
-    After the user completes the hosted flow, Plaid redirects them back to your app with the `public_token` as a query parameter.
-  </Step>
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `bank_account_owner_name` | string | ✅ | Full legal name of the account holder at the bank. Must match bank records |
+| `bank_account_type` | string | ✅ | Type of bank account. Enum: `CHECKING`, `SAVINGS` |
+| `bank_routing_number` | string | ✅ | 9-digit ABA routing number. Exactly 9 characters |
+| `bank_account_number` | string | ✅ | Bank account number. 4–17 characters. Only last 4 digits are stored |
+| `bank_name` | string | ❌ | Optional name of the bank institution (e.g., `"Chase"`) |
 
-  <Step title="Exchange the public token">
-    After the user completes Plaid Link, your backend sends the `public_token` to Buildmarkets to create the funding source.
+#### Response body (`201 Created`)
 
-    ```bash
-    curl -X POST "$BASE_URL/investors/$INVESTOR_ID/funding-sources/connect" \
-      -H "Authorization: Basic $AUTH" \
-      -H "Content-Type: application/json" \
-      -d '{ "type": "plaid", "public_token": "public-sandbox-abc123def456" }'
-    ```
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | string (UUID) | Unique identifier for this ACH relationship |
+| `account_id` | string (UUID) | The TAPP account this relationship is linked to |
+| `status` | string | Current lifecycle status: `PENDING`, `APPROVED`, `REJECTED`, `CANCELLED` |
+| `bank_account_type` | string | `CHECKING` or `SAVINGS` |
+| `bank_account_number` | string | Masked — last 4 digits only (e.g., `****9012`) |
+| `bank_routing_number` | string | Full 9-digit ABA routing number |
+| `bank_account_owner_name` | string | Name on file at the bank |
+| `bank_name` | string \| null | Bank name if provided at creation |
+| `created_at` | string (ISO 8601) | Timestamp when the relationship was created |
+| `updated_at` | string (ISO 8601) | Timestamp of the last status change |
 
-    **Response:**
-
-    ```json
-    {
-      "status": "success",
-      "data": {
-        "item": {
-          "itemId": "item_abc123",
-          "institutionName": "Chase Bank",
-          "accounts": [
-            {
-              "accountId": "acc_1234567890",
-              "accountName": "Checking Account",
-              "accountType": "depository",
-              "mask": "0000"
-            }
-          ]
-        }
-      }
-    }
-    ```
-
-    Store `itemId` and `accountId` — you'll pass these as `plaid_options` when initiating deposits and withdrawals.
-  </Step>
-</Steps>
-
-## Managing funding sources
-
-Retrieve all linked funding sources for an investor, or look up a specific one:
+#### Example request
 
 ```bash
-# List all linked funding sources
-curl -X GET "$BASE_URL/investors/$INVESTOR_ID/funding-sources" \
-  -H "Authorization: Basic $AUTH"
-
-# Get a specific funding source
-curl -X GET "$BASE_URL/investors/$INVESTOR_ID/funding-sources/$FUNDING_SOURCE_ID" \
-  -H "Authorization: Basic $AUTH"
+curl -X POST https://api.tappengine.com/v1/accounts/b3d9f1a2-4c7e-4f0b-9e2d-1a2b3c4d5e6f/ach-relationships \
+  -H "Authorization: Bearer $TAPP_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "bank_account_owner_name": "Jane Smith",
+    "bank_account_type": "CHECKING",
+    "bank_routing_number": "021000021",
+    "bank_account_number": "123456789012",
+    "bank_name": "Chase"
+  }'
 ```
 
-## Multiple bank accounts
+#### Example response
 
-<Note>
-  Users can link multiple bank accounts. Each call to the `connect` endpoint adds a new funding source. When initiating a deposit or withdrawal, specify which account to use by passing `plaid_options.item_id` and `plaid_options.account_id` in the request body.
-</Note>
+```json
+{
+  "id": "e7f2a1b3-9c4d-4e0f-8a1b-2c3d4e5f6a7b",
+  "account_id": "b3d9f1a2-4c7e-4f0b-9e2d-1a2b3c4d5e6f",
+  "status": "APPROVED",
+  "bank_account_type": "CHECKING",
+  "bank_account_number": "****9012",
+  "bank_routing_number": "021000021",
+  "bank_account_owner_name": "Jane Smith",
+  "bank_name": "Chase",
+  "created_at": "2026-03-15T10:30:00Z",
+  "updated_at": "2026-03-15T10:30:01Z"
+}
+```
+
+> **Note:** In production, `status` will initially be `PENDING`. The relationship transitions to `APPROVED` or `REJECTED` asynchronously. Listen for the `ach_relationship.approved` or `ach_relationship.rejected` webhook events to be notified when verification completes.
+
+## List ACH relationships
+
+Returns all ACH relationships associated with a TAPP account, across all statuses. Use the `status` field in each object to determine which relationships are available for transfers.
+
+### `GET /v1/accounts/{accountId}/ach-relationships`
+
+#### Path parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `accountId` | string (UUID) | ✅ | The TAPP account ID |
+
+#### Example request
+
+```bash
+curl https://api.tappengine.com/v1/accounts/b3d9f1a2-4c7e-4f0b-9e2d-1a2b3c4d5e6f/ach-relationships \
+  -H "Authorization: Bearer $TAPP_API_KEY"
+```
+
+#### Example response
+
+```json
+[
+  {
+    "id": "e7f2a1b3-9c4d-4e0f-8a1b-2c3d4e5f6a7b",
+    "account_id": "b3d9f1a2-4c7e-4f0b-9e2d-1a2b3c4d5e6f",
+    "status": "APPROVED",
+    "bank_account_type": "CHECKING",
+    "bank_account_number": "****9012",
+    "bank_routing_number": "021000021",
+    "bank_account_owner_name": "Jane Smith",
+    "bank_name": "Chase",
+    "created_at": "2026-03-15T10:30:00Z",
+    "updated_at": "2026-03-15T10:30:01Z"
+  },
+  {
+    "id": "a1b2c3d4-e5f6-7a8b-9c0d-e1f2a3b4c5d6",
+    "account_id": "b3d9f1a2-4c7e-4f0b-9e2d-1a2b3c4d5e6f",
+    "status": "CANCELLED",
+    "bank_account_type": "SAVINGS",
+    "bank_account_number": "****7788",
+    "bank_routing_number": "026009593",
+    "bank_account_owner_name": "Jane Smith",
+    "bank_name": "Bank of America",
+    "created_at": "2026-01-10T08:00:00Z",
+    "updated_at": "2026-02-20T14:22:00Z"
+  }
+]
+```
+
+## Remove an ACH relationship
+
+Permanently removes an ACH relationship. The status transitions to `CANCELLED` and the relationship can no longer be used for deposits or withdrawals. This action is **irreversible** — if the user needs to link the same bank account again, a new ACH relationship must be created.
+
+> **Important:** You cannot remove an ACH relationship that has a pending transfer in progress. Confirm all in-flight transfers have settled before removing a relationship.
+
+### `DELETE /v1/accounts/{accountId}/ach-relationships/{achId}`
+
+#### Path parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `accountId` | string (UUID) | ✅ | The TAPP account ID |
+| `achId` | string (UUID) | ✅ | The ACH relationship ID to remove |
+
+Returns `204 No Content` on success. No body is returned.
+
+#### Example request
+
+```bash
+curl -X DELETE \
+  https://api.tappengine.com/v1/accounts/b3d9f1a2-4c7e-4f0b-9e2d-1a2b3c4d5e6f/ach-relationships/e7f2a1b3-9c4d-4e0f-8a1b-2c3d4e5f6a7b \
+  -H "Authorization: Bearer $TAPP_API_KEY"
+
+HTTP/1.1 204 No Content
+```
+
+## Common errors
+
+| HTTP Status | Error | Cause |
+|-------------|-------|-------|
+| `400` | `INVALID_ROUTING_NUMBER` | Routing number is not exactly 9 digits or is not a valid ABA number |
+| `400` | `INVALID_ACCOUNT_NUMBER` | Account number is outside the 4–17 character range |
+| `404` | `ACCOUNT_NOT_FOUND` | The `accountId` does not exist or is not accessible with your API key |
+| `404` | `ACH_RELATIONSHIP_NOT_FOUND` | The `achId` does not exist for this account |
+| `409` | `DUPLICATE_ACH_RELATIONSHIP` | An active relationship already exists for this routing + account number combination |
+| `422` | `ACCOUNT_NOT_ACTIVE` | The TAPP account is not in `ACTIVE` status |
+
+## Webhook events
+
+TAPP fires webhook events when an ACH relationship changes status. Subscribe to these to drive real-time UI updates.
+
+| Event | Fired when |
+|-------|-----------|
+| `ach_relationship.approved` | Verification succeeded; relationship is now `APPROVED` |
+| `ach_relationship.rejected` | Verification failed; relationship is now `REJECTED` |
+| `ach_relationship.cancelled` | A DELETE was processed; relationship is now `CANCELLED` |
+
+See Webhook Events Reference for full payload schemas.
 
 ## Next steps
 
-- [Make a deposit](/guides/self-directed/deposits-withdrawals) to fund the account and prepare for trading
-- [Place an order](/guides/self-directed/placing-orders) once the account is funded
+* [Deposits & Withdrawals](/guides/self-directed/deposits-withdrawals) — Use an approved relationship to move funds in and out
+* [Funding Activity](/guides/self-directed/deposits-withdrawals) — Query the full transfer history for an account
+* [Webhooks Overview](/platform/webhooks) — Receive real-time notifications on relationship status changes
