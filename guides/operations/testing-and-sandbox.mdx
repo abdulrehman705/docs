@@ -1,32 +1,32 @@
 ---
 title: "Testing in Sandbox"
 sidebarTitle: "Testing & Sandbox"
-description: "Core TAPP Engine concepts, data model, and API conventions, plus how SSN suffixes control KYC outcomes in the simulated sandbox environment."
+description: "Core Buildmarkets concepts, data model, and API conventions, plus how SSN suffixes control KYC outcomes in the simulated sandbox environment."
 ---
 
-This page introduces the core concepts, data model, and conventions used throughout the TAPP Engine API. Reading this before diving into feature-specific guides will save you significant time.
+This page introduces the core concepts, data model, and conventions used throughout the Buildmarkets API. Reading this before diving into feature-specific guides will save you significant time.
 
 ## Core concepts
 
 ### Partners
 
-You — the company integrating TAPP Engine. Partners authenticate with the API using key pairs (`X-API-Key` / `X-API-Secret`) scoped to their tenant. All accounts, orders, and funding activity created through your API keys are associated with your partner account.
+You — the company integrating Buildmarkets. Partners authenticate with the API using key pairs (`X-API-Key` / `X-API-Secret`) scoped to their tenant. All accounts, orders, and funding activity created through your API keys are associated with your partner account.
 
 ### Accounts
 
-A TAPP Engine **account** represents one end-user brokerage account. Each account holds an identity (KYC data: name, DOB, SSN), contact information (address, phone, email), regulatory disclosures and signed agreements, an investment profile (suitability data), and positions, balances, orders, and funding activity. Accounts are the central resource in the TAPP Wealth API. Almost every other resource — orders, positions, funding — is scoped under `GET /v1/accounts/{accountId}/...`.
+A Buildmarkets **account** represents one end-user brokerage account. Each account holds an identity (KYC data: name, DOB, SSN), contact information (address, phone, email), regulatory disclosures and signed agreements, an investment profile (suitability data), and positions, balances, orders, and funding activity. Accounts are the central resource in the Buildmarkets Wealth API. Almost every other resource — orders, positions, funding — is scoped under `GET /v1/accounts/{accountId}/...`.
 
 ### Orders
 
-An **order** is an instruction to buy or sell a security. TAPP Engine supports equity and ETF orders with market, limit, stop, and stop-limit order types. Orders go through a lifecycle of states and generate **executions** (fills) once matched.
+An **order** is an instruction to buy or sell a security. Buildmarkets supports equity and ETF orders with market, limit, stop, and stop-limit order types. Orders go through a lifecycle of states and generate **executions** (fills) once matched.
 
 ### ACH Relationships
 
-An **ACH relationship** links a customer's external bank account to their TAPP Engine brokerage account. It is a prerequisite for funding. Once linked, you can initiate deposits (money into the brokerage account) and withdrawals (money back to the bank).
+An **ACH relationship** links a customer's external bank account to their Buildmarkets brokerage account. It is a prerequisite for funding. Once linked, you can initiate deposits (money into the brokerage account) and withdrawals (money back to the bank).
 
 ### Webhooks
 
-**Webhooks** are HTTP callbacks that TAPP Engine fires to your server when significant events occur — an account's KYC status changes, an order is filled, or a deposit settles. Webhooks are the recommended way to stay in sync with state changes rather than polling.
+**Webhooks** are HTTP callbacks that Buildmarkets fires to your server when significant events occur — an account's KYC status changes, an order is filled, or a deposit settles. Webhooks are the recommended way to stay in sync with state changes rather than polling.
 
 ## Data model overview
 
@@ -36,7 +36,7 @@ Partner (you) holds API Keys (credentials) and Accounts[]. Each Account contains
 
 ### REST & JSON
 
-The TAPP Engine API is a REST API. All request and response bodies are JSON. Set `Content-Type: application/json` on all requests with a body.
+The Buildmarkets API is a REST API. All request and response bodies are JSON. Set `Content-Type: application/json` on all requests with a body.
 
 ### Authentication
 

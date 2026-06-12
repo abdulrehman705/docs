@@ -1,32 +1,32 @@
 ---
 title: "Platform Overview"
 sidebarTitle: "Overview"
-description: "Core concepts, data model, conventions, and platform architecture of the TAPP Engine white-label brokerage API."
+description: "Core concepts, data model, conventions, and platform architecture of the Buildmarkets white-label brokerage API."
 ---
 
-This page introduces the core concepts, data model, and conventions used throughout the TAPP Engine API. Reading this before diving into feature-specific guides will save you significant time.
+This page introduces the core concepts, data model, and conventions used throughout the Buildmarkets API. Reading this before diving into feature-specific guides will save you significant time.
 
 ## Core concepts
 
 ### Partners
 
-You — the company integrating TAPP Engine. Partners authenticate with the API using key pairs (`X-API-Key` / `X-API-Secret`) scoped to their tenant. All accounts, orders, and funding activity created through your API keys are associated with your partner account.
+You — the company integrating Buildmarkets. Partners authenticate with the API using key pairs (`X-API-Key` / `X-API-Secret`) scoped to their tenant. All accounts, orders, and funding activity created through your API keys are associated with your partner account.
 
 ### Accounts
 
-A TAPP Engine **account** represents one end-user brokerage account. Each account holds an identity (KYC data: name, DOB, SSN), contact information (address, phone, email), regulatory disclosures and signed agreements, an investment profile (suitability data), and positions, balances, orders, and funding activity. Accounts are the central resource in the TAPP Wealth API. Almost every other resource — orders, positions, funding — is scoped under `GET /v1/accounts/{accountId}/...`.
+A Buildmarkets **account** represents one end-user brokerage account. Each account holds an identity (KYC data: name, DOB, SSN), contact information (address, phone, email), regulatory disclosures and signed agreements, an investment profile (suitability data), and positions, balances, orders, and funding activity. Accounts are the central resource in the Buildmarkets Wealth API. Almost every other resource — orders, positions, funding — is scoped under `GET /v1/accounts/{accountId}/...`.
 
 ### Orders
 
-An **order** is an instruction to buy or sell a security. TAPP Engine supports equity and ETF orders with market, limit, stop, and stop-limit order types. Orders go through a lifecycle of states and generate **executions** (fills) once matched.
+An **order** is an instruction to buy or sell a security. Buildmarkets supports equity and ETF orders with market, limit, stop, and stop-limit order types. Orders go through a lifecycle of states and generate **executions** (fills) once matched.
 
 ### ACH Relationships
 
-An **ACH relationship** links a customer's external bank account to their TAPP Engine brokerage account. It is a prerequisite for funding. Once linked, you can initiate deposits (money into the brokerage account) and withdrawals (money back to the bank).
+An **ACH relationship** links a customer's external bank account to their Buildmarkets brokerage account. It is a prerequisite for funding. Once linked, you can initiate deposits (money into the brokerage account) and withdrawals (money back to the bank).
 
 ### Webhooks
 
-**Webhooks** are HTTP callbacks that TAPP Engine fires to your server when significant events occur — an account's KYC status changes, an order is filled, or a deposit settles. Webhooks are the recommended way to stay in sync with state changes rather than polling.
+**Webhooks** are HTTP callbacks that Buildmarkets fires to your server when significant events occur — an account's KYC status changes, an order is filled, or a deposit settles. Webhooks are the recommended way to stay in sync with state changes rather than polling.
 
 ## Data model overview
 
@@ -36,7 +36,7 @@ Partner (you) holds API Keys (credentials) and Accounts[]. Each Account contains
 
 ### REST & JSON
 
-The TAPP Engine API is a REST API. All request and response bodies are JSON. Set `Content-Type: application/json` on all requests with a body.
+The Buildmarkets API is a REST API. All request and response bodies are JSON. Set `Content-Type: application/json` on all requests with a body.
 
 ### Authentication
 
@@ -110,13 +110,13 @@ For example, SSN `111-22-0001` will result in an immediately approved account. A
 
 ---
 
-## About TAPP Engine
+## About Buildmarkets
 
-TAPP Engine is a white-label wealth management and brokerage infrastructure platform built for financial institutions. It provides the API layer that lets financial institutions offer investment accounts, equity and ETF trading, managed portfolios, and funding services directly within their own member- or customer-facing experiences — powered by a FINRA-registered broker-dealer and SEC-registered RIA.
+Buildmarkets is a white-label wealth management and brokerage infrastructure platform built for financial institutions. It provides the API layer that lets financial institutions offer investment accounts, equity and ETF trading, managed portfolios, and funding services directly within their own member- or customer-facing experiences — powered by a FINRA-registered broker-dealer and SEC-registered RIA.
 
-### TAPP Engine API Overview
+### Buildmarkets API Overview
 
-TAPP Engine APIs sit between your application and the underlying brokerage and clearing infrastructure. You interact with a single, unified REST API; TAPP Engine handles everything underneath:
+Buildmarkets APIs sit between your application and the underlying brokerage and clearing infrastructure. You interact with a single, unified REST API; Buildmarkets handles everything underneath:
 
 * **Account opening & KYC** — Identity verification, regulatory disclosures, and agreement capture
 * **Order routing** — Routing equity and ETF orders to market
@@ -127,11 +127,11 @@ TAPP Engine APIs sit between your application and the underlying brokerage and c
 
 ### Platform Architecture
 
-Your Application (Member Portal, Mobile App, or Back-Office Integration) connects via REST API (HTTPS) using X-API-Key / X-API-Secret to the TAPP Engine API. The TAPP Engine API exposes modules for Accounts, Order Management, Portfolios, Market Data, Funding, Documents, Advisory, and Webhooks. Underneath, it connects to Clearing & Custody (RQD Clearing) and Market Data Providers.
+Your Application (Member Portal, Mobile App, or Back-Office Integration) connects via REST API (HTTPS) using X-API-Key / X-API-Secret to the Buildmarkets API. The Buildmarkets API exposes modules for Accounts, Order Management, Portfolios, Market Data, Funding, Documents, Advisory, and Webhooks. Underneath, it connects to Clearing & Custody (RQD Clearing) and Market Data Providers.
 
-### Who is TAPP Engine for?
+### Who is Buildmarkets for?
 
-TAPP Engine is designed for **partners** — financial institutions that want to embed investing features into their product:
+Buildmarkets is designed for **partners** — financial institutions that want to embed investing features into their product:
 
 | Partner type | Example use case |
 |---|---|
@@ -143,13 +143,13 @@ TAPP Engine is designed for **partners** — financial institutions that want to
 
 ### Product Areas
 
-#### TAPP Wealth
+#### Buildmarkets Wealth
 
 The core brokerage suite. Includes account management, equity and ETF trading, ACH funding, market data, and documents.
 
-#### TAPP FIX Gateway
+#### Buildmarkets FIX Gateway
 
-For partners with their own OMS or algorithmic trading infrastructure, TAPP Engine offers a FIX 4.2-compliant gateway for high-throughput order submission.
+For partners with their own OMS or algorithmic trading infrastructure, Buildmarkets offers a FIX 4.2-compliant gateway for high-throughput order submission.
 
 ### Environments
 
@@ -163,12 +163,12 @@ For partners with their own OMS or algorithmic trading infrastructure, TAPP Engi
 
 ### Regulatory & Compliance
 
-TAPP Engine's underlying brokerage infrastructure is operated through a registered broker-dealer and FINRA member. As a partner, you agree to TAPP Engine's partner program terms, which govern your use of the platform and your obligations with respect to customer accounts opened through your application.
+Buildmarkets's underlying brokerage infrastructure is operated through a registered broker-dealer and FINRA member. As a partner, you agree to Buildmarkets's partner program terms, which govern your use of the platform and your obligations with respect to customer accounts opened through your application.
 
 Refer to your partner agreement for specifics on your compliance obligations, including customer suitability, supervision, and recordkeeping requirements.
 
 ### Next Steps
 
-* Introduction to TAPP Engine — Understand the key concepts and data model
+* Introduction to Buildmarkets — Understand the key concepts and data model
 * Use Cases — See common integration patterns
 * Getting Started — Make your first API call

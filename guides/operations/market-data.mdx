@@ -1,12 +1,12 @@
 ---
 title: "Working with Market Data"
 sidebarTitle: "Market Data"
-description: "Reference for TAPP Engine market data endpoints covering real-time and historical prices, company fundamentals, news, dividends, logos, and reference data."
+description: "Reference for Buildmarkets market data endpoints covering real-time and historical prices, company fundamentals, news, dividends, logos, and reference data."
 ---
 
 ## Overview
 
-TAPP Engine offers two price data endpoints for equities: "a real-time quote endpoint delivering live bid/ask/last data from the market feed, and a historical endpoint returning end-of-day OHLCV bars over any date range."
+Buildmarkets offers two price data endpoints for equities: "a real-time quote endpoint delivering live bid/ask/last data from the market feed, and a historical endpoint returning end-of-day OHLCV bars over any date range."
 
 ## Real-Time Quotes
 
@@ -23,7 +23,7 @@ Returns live quotes sourced from QuoteMedia, including bid, ask, last trade pric
 **Example:**
 ```bash
 curl https://api.tappengine.com/v1/marketdata/real-time/AAPL \
-  -H "Authorization: Bearer $TAPP_API_KEY"
+  -H "Authorization: Bearer $BUILDMARKETS_API_KEY"
 ```
 
 ## Historical Prices
@@ -59,7 +59,7 @@ Use `adj_close` for calculations, as "it accounts for stock splits and dividend 
 
 ### Overview
 
-TAPP Engine provides two key endpoints for accessing company-level financial data. The **company profile** endpoint delivers "high-level descriptive and valuation data," while the **balance sheet** endpoint surfaces "structured financial statements."
+Buildmarkets provides two key endpoints for accessing company-level financial data. The **company profile** endpoint delivers "high-level descriptive and valuation data," while the **balance sheet** endpoint surfaces "structured financial statements."
 
 ### Available Endpoints
 
@@ -101,7 +101,7 @@ Possible error responses range from `400 INVALID_SYMBOL` to `404 SYMBOL_NOT_FOUN
 
 ## News, Dividends & Logos
 
-Three companion endpoints round out TAPP Engine's per-symbol market data surface: **news** for surfacing relevant articles and corporate actions, **cash dividends** for historical distribution records, and **logos** for company brand images. These are especially useful for building rich stock detail pages and notification feeds.
+Three companion endpoints round out Buildmarkets's per-symbol market data surface: **news** for surfacing relevant articles and corporate actions, **cash dividends** for historical distribution records, and **logos** for company brand images. These are especially useful for building rich stock detail pages and notification feeds.
 
 ---
 
@@ -150,7 +150,7 @@ Returns a list of news articles and corporate action events linked to a specific
 
 ```bash
 curl "https://api.tappengine.com/v1/marketdata/news/AAPL?limit=5" \
-  -H "Authorization: Bearer $TAPP_API_KEY"
+  -H "Authorization: Bearer $BUILDMARKETS_API_KEY"
 ```
 
 ##### Example response
@@ -230,7 +230,7 @@ Supports lookup by ticker or by CUSIP/ISIN using the `*` prefix.
 
 ```bash
 curl "https://api.tappengine.com/v1/marketdata/cash-dividends/AAPL?excludingFrom=2025-01-01&excludingTo=2025-12-31" \
-  -H "Authorization: Bearer $TAPP_API_KEY"
+  -H "Authorization: Bearer $BUILDMARKETS_API_KEY"
 ```
 
 ##### Example response
@@ -304,7 +304,7 @@ Logos are provided by QuoteMedia and are updated periodically to reflect rebrand
 
 ```bash
 curl https://api.tappengine.com/v1/marketdata/logos/AAPL \
-  -H "Authorization: Bearer $TAPP_API_KEY"
+  -H "Authorization: Bearer $BUILDMARKETS_API_KEY"
 ```
 
 ##### Example response
@@ -345,7 +345,7 @@ Updated 3 months ago
 
 ## Reference Data
 
-The TAPP Engine Reference Data endpoints provide programmatic access to the platform's complete equity universe. These endpoints enable developers to build search features, sector-based screeners, watchlist browsers, and onboarding flows.
+The Buildmarkets Reference Data endpoints provide programmatic access to the platform's complete equity universe. These endpoints enable developers to build search features, sector-based screeners, watchlist browsers, and onboarding flows.
 
 ### Available Endpoints
 

@@ -6,7 +6,7 @@ description: "Access real-time quotes, historical prices, fundamentals, dividend
 
 ## Introduction
 
-TAPP Engine's Market Data APIs offer access to comprehensive financial data for U.S.-listed equities, sourced from QuoteMedia. All data comes included with your TAPP Engine integration—no separate subscription needed.
+Buildmarkets's Market Data APIs offer access to comprehensive financial data for U.S.-listed equities, sourced from QuoteMedia. All data comes included with your Buildmarkets integration—no separate subscription needed.
 
 ## Available Data Categories
 
@@ -51,11 +51,11 @@ The asterisk prefix indicates the API should treat input as an instrument identi
 All endpoints use API key authentication via the `Authorization` header:
 
 ```
-Authorization: Bearer $TAPP_API_KEY
+Authorization: Bearer $BUILDMARKETS_API_KEY
 ```
 
 Refer to the Authentication Overview documentation for additional details.
 
 ## Rate Limiting
 
-Market data endpoints share the same rate limit pool as other TAPP API endpoints. Real-time quote endpoints support frequent polling but shouldn't exceed one call per second per symbol in production environments. For high-frequency display scenarios, implement client-side caching with a short TTL (1–2 seconds recommended).
+Market data endpoints share the same rate limit pool as other Buildmarkets API endpoints. Real-time quote endpoints support frequent polling but shouldn't exceed one call per second per symbol in production environments. For high-frequency display scenarios, implement client-side caching with a short TTL (1–2 seconds recommended).

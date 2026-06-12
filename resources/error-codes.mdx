@@ -1,10 +1,10 @@
 ---
 title: "Error Code Reference"
 sidebarTitle: "Error Codes"
-description: "Reference table of TAPP Engine HTTP status codes and error codes for authentication, validation, account, trading, and funding errors plus rate limits."
+description: "Reference table of Buildmarkets HTTP status codes and error codes for authentication, validation, account, trading, and funding errors plus rate limits."
 ---
 
-TAPP Engine uses standard HTTP status codes along with structured JSON error bodies to communicate what went wrong. This page is your reference for understanding and handling error responses.
+Buildmarkets uses standard HTTP status codes along with structured JSON error bodies to communicate what went wrong. This page is your reference for understanding and handling error responses.
 
 ## Error response format
 
@@ -26,7 +26,7 @@ All error responses return a JSON body with a consistent structure:
 | `code` | A machine-readable error code string |
 | `message` | A human-readable description of the error |
 | `field` | (When applicable) The request field that caused the error |
-| `request_id` | A unique ID for this request — include this when contacting TAPP Engine support |
+| `request_id` | A unique ID for this request — include this when contacting Buildmarkets support |
 
 ## HTTP status codes
 
@@ -54,7 +54,7 @@ All error responses return a JSON body with a consistent structure:
 
 | Code | Meaning |
 |------|---------|
-| `500 Internal Server Error` | An unexpected error occurred on TAPP Engine's side. |
+| `500 Internal Server Error` | An unexpected error occurred on Buildmarkets's side. |
 | `503 Service Unavailable` | The service or a dependency is temporarily unavailable. |
 
 ## Common error codes
@@ -108,13 +108,13 @@ All error responses return a JSON body with a consistent structure:
 
 ## Rate limits
 
-TAPP Engine enforces rate limits to ensure platform stability for all partners.
+Buildmarkets enforces rate limits to ensure platform stability for all partners.
 
 | Limit | Default |
 |-------|---------|
 | Requests per second (per API key) | 10 |
 | Requests per minute (per API key) | 300 |
-| Requests per day (per partner) | Contact your TAPP representative |
+| Requests per day (per partner) | Contact your Buildmarkets representative |
 
 When you exceed a rate limit, you receive a `429 Too Many Requests` response with a `Retry-After` header indicating how many seconds to wait before retrying:
 
@@ -148,7 +148,7 @@ if (!response.ok) {
 
 ### Log request IDs
 
-Always log the `request_id` from error responses. When contacting TAPP Engine support, provide this ID so the support team can trace the request through internal systems.
+Always log the `request_id` from error responses. When contacting Buildmarkets support, provide this ID so the support team can trace the request through internal systems.
 
 ### Retry strategy
 

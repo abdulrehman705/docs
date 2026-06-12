@@ -19,7 +19,7 @@ Node.js
 Python
 
 ```
-curl -X GET 'https://test-service.bluumfinance.com/v1/assets' \
+curl -X GET 'https://dev-tapp-api.tappengine.com/v1/assets' \
   -H 'Authorization: Basic '$(echo -n 'YOUR_API_KEY:YOUR_API_SECRET' | base64)
 ```
 
@@ -45,8 +45,8 @@ You receive separate credentials for each environment:
 
 | Environment | Base URL | How to get |
 | --- | --- | --- |
-| Sandbox | `https://test-service.bluumfinance.com/v1` | Dashboard → Settings → API Keys |
-| Production | `https://service.bluumfinance.com/v1` | Issued after compliance approval |
+| Sandbox | `https://dev-tapp-api.tappengine.com/v1` | Dashboard → Settings → API Keys |
+| Production | `https://api.tappengine.com/v1` | Issued after compliance approval |
 
 The API Secret is shown only once when created. Store it immediately in a secret manager. If lost, generate a new key pair.
 

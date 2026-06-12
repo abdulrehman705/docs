@@ -1,16 +1,16 @@
 ---
 title: "Accounts"
 sidebarTitle: "Accounts"
-description: "The Accounts API is the core of TAPP Engine, covering account types, endpoints, statuses, KYC, listing, updating, and closing accounts."
+description: "The Accounts API is the core of Buildmarkets, covering account types, endpoints, statuses, KYC, listing, updating, and closing accounts."
 ---
 
 ## Introduction
 
-The Accounts API serves as the core foundation of TAPP Engine. Every end-user brokerage account is represented as an account resource, with all trading, funding, and document activity organized beneath it.
+The Accounts API serves as the core foundation of Buildmarkets. Every end-user brokerage account is represented as an account resource, with all trading, funding, and document activity organized beneath it.
 
 ## What is an Account?
 
-A TAPP Engine account is "a fully-managed brokerage account for one of your end users." When creating an account, you submit identity, contact, suitability, and disclosure information on the user's behalf. The system then handles KYC/AML verification, agreement tracking, account status management, and real-time position and balance custody.
+A Buildmarkets account is "a fully-managed brokerage account for one of your end users." When creating an account, you submit identity, contact, suitability, and disclosure information on the user's behalf. The system then handles KYC/AML verification, agreement tracking, account status management, and real-time position and balance custody.
 
 ## Account Types
 
@@ -51,7 +51,7 @@ The `kyc_status` field provides granular visibility into identity verification:
 | SUBMITTED | Identity data awaiting processing |
 | APPROVED | Identity verified |
 | REJECTED | Identity could not be verified |
-| MANUAL_REVIEW | Requires TAPP Engine compliance team review |
+| MANUAL_REVIEW | Requires Buildmarkets compliance team review |
 
 ### Sandbox Testing
 

@@ -23,7 +23,7 @@ The Order Status Request message (MsgType = `"H"`) allows you to request the gat
 ## Example
 
 ```
-8=FIX.4.4|35=H|49=CLIENT1|56=TAPPENGINE|11=STAT-20260212-001|1=ACC123456789|37=TAPP-78450|55=AAPL|167=CS|54=1|10=012|
+8=FIX.4.4|35=H|49=CLIENT1|56=BUILDMARKETS|11=STAT-20260212-001|1=ACC123456789|37=BMKT-78450|55=AAPL|167=CS|54=1|10=012|
 ```
 
 The gateway responds with an Execution Report (MsgType=`"8"`) where `ExecType=I` (Order Status), containing the current order state.

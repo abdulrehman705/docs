@@ -101,7 +101,7 @@ Update environment configuration
 Switch your base URL and credentials to production values:
 
 ```
-export BLUUM_BASE_URL="https://service.bluumfinance.com/v1"
+export MARKET_BASE_URL="https://api.tappengine.com/v1"
 export BLUUM_API_KEY="your_production_key"
 export BLUUM_API_SECRET="your_production_secret"
 ```
@@ -113,7 +113,7 @@ Smoke test
 Verify connectivity with a read-only request:
 
 ```
-curl -X GET "$BLUUM_BASE_URL/assets?asset_class=us_equity&tradable=true" \
+curl -X GET "$MARKET_BASE_URL/assets?asset_class=us_equity&tradable=true" \
   -H "Authorization: Basic $(echo -n "$BLUUM_API_KEY:$BLUUM_API_SECRET" | base64)"
 ```
 

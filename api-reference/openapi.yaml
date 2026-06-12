@@ -105,9 +105,9 @@ info:
     the password. Base64-encode `API_KEY:API_SECRET` and send in the
     `Authorization` header.
 servers:
-  - url: https://service.bluumfinance.com/v1
+  - url: https://api.tappengine.com/v1
     description: Production Environment
-  - url: https://test-service.bluumfinance.com/v1
+  - url: https://dev-tapp-api.tappengine.com/v1
     description: Sandbox/Testing Environment
 security:
   - BluumApiKeyAuth: []

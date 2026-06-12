@@ -21,7 +21,7 @@ The Logon message must be sent first after establishing a TCP connection. The ga
 
 **Example:**
 ```
-8=FIX.4.4|9=72|35=A|34=1|49=CLIENT1|52=20260212-14:00:00.000|56=TAPPENGINE|98=0|108=60|10=123|
+8=FIX.4.4|9=72|35=A|34=1|49=CLIENT1|52=20260212-14:00:00.000|56=BUILDMARKETS|98=0|108=60|10=123|
 ```
 
 ## Logout
@@ -30,7 +30,7 @@ Clients must log out at the end of each trading session. Verify no live orders e
 
 **Logout (MsgType = "5")**
 ```
-8=FIX.4.4|9=56|35=5|34=150|49=CLIENT1|52=20260212-20:00:00.000|56=TAPPENGINE|10=045|
+8=FIX.4.4|9=56|35=5|34=150|49=CLIENT1|52=20260212-20:00:00.000|56=BUILDMARKETS|10=045|
 ```
 
 ## Sequencing and Reconnecting
@@ -47,7 +47,7 @@ Send a Resend Request to recover missed messages when a sequence gap is detected
 
 ## Reject
 
-> **Recommendation:** "Avoid using the FIX Reject message. Per the FIX specification, any message you reject will **not** be resent." Instead, contact TAPP Engine support for unexpected message formats.
+> **Recommendation:** "Avoid using the FIX Reject message. Per the FIX specification, any message you reject will **not** be resent." Instead, contact Buildmarkets support for unexpected message formats.
 
 ## Sequence Reset
 

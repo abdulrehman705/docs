@@ -6,7 +6,7 @@ description: "Place, modify, cancel, and list equity and ETF orders, with order 
 
 ## Introduction
 
-The Trading APIs enable you to place, modify, cancel, and list orders, plus view execution reports and transaction history. TAPP Engine supports **equity and ETF orders** with market and limit order types.
+The Trading APIs enable you to place, modify, cancel, and list orders, plus view execution reports and transaction history. Buildmarkets supports **equity and ETF orders** with market and limit order types.
 
 ## Trading Endpoints
 
@@ -58,7 +58,7 @@ Orders transition through these states: `pending_new` → `new` → `partially_f
 
 | State | Description |
 |-------|-------------|
-| `pending_new` | Order received by TAPP Engine; being submitted to the market |
+| `pending_new` | Order received by Buildmarkets; being submitted to the market |
 | `new` | Order accepted by the exchange/market |
 | `partially_filled` | Some shares filled; remainder still working |
 | `filled` | Order is fully executed |
@@ -69,7 +69,7 @@ Orders transition through these states: `pending_new` → `new` → `partially_f
 
 ## Idempotency with `client_order_id`
 
-"Always include a `client_order_id` — a unique string you generate — on every order request." If your request times out and you retry, TAPP Engine returns the existing order rather than creating a duplicate. Recommended pattern: `{userId}-{symbol}-{action}-{date}-{sequence}`.
+"Always include a `client_order_id` — a unique string you generate — on every order request." If your request times out and you retry, Buildmarkets returns the existing order rather than creating a duplicate. Recommended pattern: `{userId}-{symbol}-{action}-{date}-{sequence}`.
 
 ## Next Steps
 

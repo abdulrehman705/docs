@@ -142,7 +142,7 @@ Automated testing tips
 ```
 // Use environment variables for easy switching
 const config = {
-  baseUrl: process.env.BLUUM_BASE_URL || 'https://test-service.bluumfinance.com/v1',
+  baseUrl: process.env.MARKET_BASE_URL || 'https://dev-tapp-api.tappengine.com/v1',
   apiKey: process.env.BLUUM_API_KEY,
   apiSecret: process.env.BLUUM_API_SECRET
 };

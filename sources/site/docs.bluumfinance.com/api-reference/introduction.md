@@ -10,8 +10,8 @@ Base URLs
 
 | Environment | URL |
 | --- | --- |
-| **Sandbox** | `https://test-service.bluumfinance.com/v1` |
-| **Production** | `https://service.bluumfinance.com/v1` |
+| **Sandbox** | `https://dev-tapp-api.tappengine.com/v1` |
+| **Production** | `https://api.tappengine.com/v1` |
 
 ## 
 

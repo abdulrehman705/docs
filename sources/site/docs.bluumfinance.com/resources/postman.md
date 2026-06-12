@@ -22,7 +22,7 @@ Create a Postman environment with these variables:
 
 | Variable | Value |
 | --- | --- |
-| `baseUrl` | `https://test-service.bluumfinance.com/v1` |
+| `baseUrl` | `https://dev-tapp-api.tappengine.com/v1` |
 | `apiKey` | Your sandbox API key |
 | `apiSecret` | Your sandbox API secret |
 
@@ -86,7 +86,7 @@ Switching environments
 To switch from sandbox to production:
 
 1. Create a new Postman environment
-2. Set `baseUrl` to `https://service.bluumfinance.com/v1`
+2. Set `baseUrl` to `https://api.tappengine.com/v1`
 3. Use your production API key and secret
 4. Select the production environment before sending requests
 

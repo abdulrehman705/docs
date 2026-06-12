@@ -9,7 +9,7 @@ Set these variables once — every example below references them:
 ```
 API_KEY="YOUR_API_KEY"
 API_SECRET="YOUR_API_SECRET"
-BASE_URL="https://test-service.bluumfinance.com/v1"
+BASE_URL="https://dev-tapp-api.tappengine.com/v1"
 AUTH=$(echo -n "$API_KEY:$API_SECRET" | base64)
 ```
 

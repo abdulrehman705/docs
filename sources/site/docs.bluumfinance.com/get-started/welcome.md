@@ -76,7 +76,7 @@ Authentication
 All API requests use **HTTP Basic Authentication**. Your API Key is the username, your API Secret is the password.
 
 ```
-curl -X GET 'https://test-service.bluumfinance.com/v1/assets?asset_class=us_equity' \
+curl -X GET 'https://dev-tapp-api.tappengine.com/v1/assets?asset_class=us_equity' \
   -H 'Authorization: Basic '$(echo -n 'YOUR_API_KEY:YOUR_API_SECRET' | base64)
 ```
 
@@ -90,8 +90,8 @@ Environments
 
 | Environment | Base URL | Purpose |
 | --- | --- | --- |
-| **Sandbox** | `https://test-service.bluumfinance.com/v1` | Development and testing. Data resets nightly. Simulated order fills. |
-| **Production** | `https://service.bluumfinance.com/v1` | Live operations. Real money and securities. Requires compliance approval. |
+| **Sandbox** | `https://dev-tapp-api.tappengine.com/v1` | Development and testing. Data resets nightly. Simulated order fills. |
+| **Production** | `https://api.tappengine.com/v1` | Live operations. Real money and securities. Requires compliance approval. |
 
 Start in sandbox — no approval needed. See [Sandbox Environment](https://docs.bluumfinance.com/get-started/sandbox) for setup details.
 

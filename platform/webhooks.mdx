@@ -1,10 +1,10 @@
 ---
 title: "Webhooks"
 sidebarTitle: "Webhooks"
-description: "Register and manage HTTPS webhook endpoints to receive real-time event notifications from TAPP Engine instead of polling the API."
+description: "Register and manage HTTPS webhook endpoints to receive real-time event notifications from Buildmarkets instead of polling the API."
 ---
 
-Webhooks let your application receive real-time notifications when events occur within TAPP Engine — account approvals, funding transfers, order fills, and more. Rather than polling the API repeatedly to check for status changes, you register an HTTPS endpoint and TAPP pushes event payloads to it as things happen.
+Webhooks let your application receive real-time notifications when events occur within Buildmarkets — account approvals, funding transfers, order fills, and more. Rather than polling the API repeatedly to check for status changes, you register an HTTPS endpoint and Buildmarkets pushes event payloads to it as things happen.
 
 This page covers how to register and manage webhook endpoints. For a full reference of every event type and its payload structure, see [Webhook Events Reference](/guides/operations/webhook-setup). For payload verification, retry logic, and delivery guarantees, see [Webhook Security & Delivery](/guides/operations/webhook-setup).
 
@@ -13,16 +13,16 @@ This page covers how to register and manage webhook endpoints. For a full refere
 ## How webhooks work
 
 ```
-      Event occurs in TAPP         TAPP sends HTTP POST          Your server
+      Event occurs in Buildmarkets         Buildmarkets sends HTTP POST          Your server
       (e.g., order filled)   →     to your webhook URL      →    processes event
                                    with signed payload            and returns 2xx
 ```
 
 1.  **Register** an HTTPS endpoint via `POST /v1/webhooks`
-2.  **Receive** a signing secret — used to verify that payloads come from TAPP
-3.  **TAPP delivers** a JSON payload to your URL via HTTP POST whenever a subscribed event fires
+2.  **Receive** a signing secret — used to verify that payloads come from Buildmarkets
+3.  **Buildmarkets delivers** a JSON payload to your URL via HTTP POST whenever a subscribed event fires
 4.  **Your server** validates the signature, processes the event, and returns a `2xx` status
-5.  **TAPP retries** failed deliveries automatically (see [Security & Delivery](/guides/operations/webhook-setup))
+5.  **Buildmarkets retries** failed deliveries automatically (see [Security & Delivery](/guides/operations/webhook-setup))
 
 > **The secret is shown only once.** Store it securely at registration time — it cannot be retrieved again. If lost, delete the webhook and create a new one.
 
@@ -52,7 +52,7 @@ Registers a new HTTPS endpoint to receive events. Pass an empty `events` array t
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| `url` | string (URI) | ✅ | HTTPS URL where TAPP will POST event payloads. Must be a valid `https://` URL |
+| `url` | string (URI) | ✅ | HTTPS URL where Buildmarkets will POST event payloads. Must be a valid `https://` URL |
 | `events` | array of strings | ✅ | Event types to subscribe to. Pass an empty array `[]` to receive all events. See [Webhook Events Reference](/guides/operations/webhook-setup) for valid values |
 
 #### Response body (`201 Created`)
@@ -72,10 +72,10 @@ Registers a new HTTPS endpoint to receive events. Pass an empty `events` array t
 
 ```bash
 curl -X POST https://api.tappengine.com/v1/webhooks \
-  -H "Authorization: Bearer $TAPP_API_KEY" \
+  -H "Authorization: Bearer $BUILDMARKETS_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{
-    "url": "https://myapp.com/webhooks/tapp",
+    "url": "https://myapp.com/webhooks/buildmarkets",
     "events": []
   }'
 ```
@@ -84,10 +84,10 @@ curl -X POST https://api.tappengine.com/v1/webhooks \
 
 ```bash
 curl -X POST https://api.tappengine.com/v1/webhooks \
-  -H "Authorization: Bearer $TAPP_API_KEY" \
+  -H "Authorization: Bearer $BUILDMARKETS_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{
-    "url": "https://myapp.com/webhooks/tapp",
+    "url": "https://myapp.com/webhooks/buildmarkets",
     "events": [
       "account.kyc_approved",
       "account.closed",
@@ -103,7 +103,7 @@ curl -X POST https://api.tappengine.com/v1/webhooks \
 ```json
 {
   "id": "wh_a1b2c3d4-e5f6-7a8b-9c0d-e1f2a3b4c5d6",
-  "url": "https://myapp.com/webhooks/tapp",
+  "url": "https://myapp.com/webhooks/buildmarkets",
   "events": [
     "account.kyc_approved",
     "account.closed",
@@ -129,7 +129,7 @@ Returns all registered webhook endpoints for your account.
 
 ```bash
 curl https://api.tappengine.com/v1/webhooks \
-  -H "Authorization: Bearer $TAPP_API_KEY"
+  -H "Authorization: Bearer $BUILDMARKETS_API_KEY"
 ```
 
 #### Example response
@@ -138,7 +138,7 @@ curl https://api.tappengine.com/v1/webhooks \
 [
   {
     "id": "wh_a1b2c3d4-e5f6-7a8b-9c0d-e1f2a3b4c5d6",
-    "url": "https://myapp.com/webhooks/tapp",
+    "url": "https://myapp.com/webhooks/buildmarkets",
     "events": ["account.kyc_approved", "order.filled"],
     "status": "active",
     "created_at": "2026-03-24T10:00:00Z"
@@ -166,7 +166,7 @@ Returns the configuration for a single registered webhook by ID. The signing `se
 
 ```bash
 curl https://api.tappengine.com/v1/webhooks/wh_a1b2c3d4-e5f6-7a8b-9c0d-e1f2a3b4c5d6 \
-  -H "Authorization: Bearer $TAPP_API_KEY"
+  -H "Authorization: Bearer $BUILDMARKETS_API_KEY"
 ```
 
 ---
@@ -195,7 +195,7 @@ Updates the URL, subscribed events, or status of an existing webhook. Only inclu
 
 ```bash
 curl -X PATCH https://api.tappengine.com/v1/webhooks/wh_a1b2c3d4-e5f6-7a8b-9c0d-e1f2a3b4c5d6 \
-  -H "Authorization: Bearer $TAPP_API_KEY" \
+  -H "Authorization: Bearer $BUILDMARKETS_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"status": "disabled"}'
 ```
@@ -204,10 +204,10 @@ curl -X PATCH https://api.tappengine.com/v1/webhooks/wh_a1b2c3d4-e5f6-7a8b-9c0d-
 
 ```bash
 curl -X PATCH https://api.tappengine.com/v1/webhooks/wh_a1b2c3d4-e5f6-7a8b-9c0d-e1f2a3b4c5d6 \
-  -H "Authorization: Bearer $TAPP_API_KEY" \
+  -H "Authorization: Bearer $BUILDMARKETS_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{
-    "url": "https://myapp.com/webhooks/tapp-v2",
+    "url": "https://myapp.com/webhooks/buildmarkets-v2",
     "events": ["account.kyc_approved", "order.filled", "order.rejected", "funding.deposit_completed"]
   }'
 ```
@@ -216,7 +216,7 @@ curl -X PATCH https://api.tappengine.com/v1/webhooks/wh_a1b2c3d4-e5f6-7a8b-9c0d-
 
 ## Send a test event
 
-Triggers a synthetic test payload to be sent to the webhook's registered URL. Use this to verify that your endpoint is reachable and correctly processing TAPP payloads without waiting for a real event to occur.
+Triggers a synthetic test payload to be sent to the webhook's registered URL. Use this to verify that your endpoint is reachable and correctly processing Buildmarkets payloads without waiting for a real event to occur.
 
 ### `POST /v1/webhooks/{webhookId}/test`
 
@@ -230,10 +230,10 @@ Triggers a synthetic test payload to be sent to the webhook's registered URL. Us
 
 ```bash
 curl -X POST https://api.tappengine.com/v1/webhooks/wh_a1b2c3d4-e5f6-7a8b-9c0d-e1f2a3b4c5d6/test \
-  -H "Authorization: Bearer $TAPP_API_KEY"
+  -H "Authorization: Bearer $BUILDMARKETS_API_KEY"
 ```
 
-TAPP sends a test payload with `"event_type": "webhook.test"` to the registered URL. Your endpoint should respond with a `2xx` status. Check the [delivery history](/guides/operations/webhook-setup) to see whether it was received successfully.
+Buildmarkets sends a test payload with `"event_type": "webhook.test"` to the registered URL. Your endpoint should respond with a `2xx` status. Check the [delivery history](/guides/operations/webhook-setup) to see whether it was received successfully.
 
 ---
 
@@ -249,7 +249,7 @@ Returns `204 No Content` on success.
 
 ```bash
 curl -X DELETE https://api.tappengine.com/v1/webhooks/wh_a1b2c3d4-e5f6-7a8b-9c0d-e1f2a3b4c5d6 \
-  -H "Authorization: Bearer $TAPP_API_KEY"
+  -H "Authorization: Bearer $BUILDMARKETS_API_KEY"
 ```
 
 ---

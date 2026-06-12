@@ -27,7 +27,7 @@ All Buildmarkets requests use HTTP Basic Auth — your API key as the username a
 
 ```javascript Node.js
 class BluumClient {
-  constructor(apiKey, apiSecret, baseUrl = 'https://test-service.bluumfinance.com/v1') {
+  constructor(apiKey, apiSecret, baseUrl = 'https://dev-tapp-api.tappengine.com/v1') {
     this.baseUrl = baseUrl;
     this.auth = 'Basic ' + Buffer.from(`${apiKey}:${apiSecret}`).toString('base64');
   }
@@ -57,7 +57,7 @@ import base64
 import requests
 
 class BluumClient:
-    def __init__(self, api_key, api_secret, base_url='https://test-service.bluumfinance.com/v1'):
+    def __init__(self, api_key, api_secret, base_url='https://dev-tapp-api.tappengine.com/v1'):
         self.base_url = base_url
         credentials = base64.b64encode(f'{api_key}:{api_secret}'.encode()).decode()
         self.headers = {

@@ -1,10 +1,10 @@
 ---
 title: "Setting Up Webhooks"
 sidebarTitle: "Webhook Setup"
-description: "Reference for every TAPP Engine webhook event type plus signature verification, delivery guarantees, and reliable handler best practices."
+description: "Reference for every Buildmarkets webhook event type plus signature verification, delivery guarantees, and reliable handler best practices."
 ---
 
-This page documents every event type that TAPP Engine can deliver to your webhook endpoint, organized by domain. Each entry includes the event name, when it fires, and the full JSON payload structure.
+This page documents every event type that Buildmarkets can deliver to your webhook endpoint, organized by domain. Each entry includes the event name, when it fires, and the full JSON payload structure.
 
 For information on registering webhooks and managing subscriptions, see [Webhooks Overview](/platform/webhooks). For signature verification and delivery guarantees, see [Webhook Security & Delivery](/guides/operations/webhook-setup).
 
@@ -237,7 +237,7 @@ Fires when an ACH withdrawal is returned by the bank.
 
 ### `order.submitted`
 
-Fires when an order has been accepted by TAPP and submitted to the market. The order is now in `pending_new` or `new` status.
+Fires when an order has been accepted by Buildmarkets and submitted to the market. The order is now in `pending_new` or `new` status.
 
 ```json
 {
@@ -283,7 +283,7 @@ Fires when an order is fully executed. Includes the average fill price and total
 
 ### `order.rejected`
 
-Fires when an order is rejected — either by TAPP validation or by the downstream execution venue. The `rejection_reason` explains why.
+Fires when an order is rejected — either by Buildmarkets validation or by the downstream execution venue. The `rejection_reason` explains why.
 
 ```json
 {
@@ -337,7 +337,7 @@ In rare cases (network issues, retries), your endpoint may receive the same even
 ```javascript
 const processedEventIds = new Set(); // or use a persistent store
 
-app.post('/webhooks/tapp', (req, res) => {
+app.post('/webhooks/buildmarkets', (req, res) => {
   const event = req.body;
   
   if (processedEventIds.has(event.id)) {
@@ -363,20 +363,20 @@ Updated 3 months ago
 
 ## Webhook Security & Delivery
 
-Every webhook payload TAPP sends is cryptographically signed. Verifying this signature before processing an event is **critical** — it ensures the payload genuinely came from TAPP and has not been tampered with. This page explains how to verify signatures, what delivery guarantees TAPP provides, how to inspect delivery history, and best practices for building a reliable webhook handler.
+Every webhook payload Buildmarkets sends is cryptographically signed. Verifying this signature before processing an event is **critical** — it ensures the payload genuinely came from Buildmarkets and has not been tampered with. This page explains how to verify signatures, what delivery guarantees Buildmarkets provides, how to inspect delivery history, and best practices for building a reliable webhook handler.
 
 * * *
 
 ### Signature verification
 
-When you register a webhook, TAPP returns a `secret` that begins with `whsec_`. TAPP uses this secret to compute an HMAC-SHA256 signature of the raw request body and attaches it to every delivery via the `X-TAPP-Signature` header.
+When you register a webhook, Buildmarkets returns a `secret` that begins with `whsec_`. Buildmarkets uses this secret to compute an HMAC-SHA256 signature of the raw request body and attaches it to every delivery via the `X-BMKT-Signature` header.
 
 **Your endpoint must verify this signature before acting on any payload.**
 
 #### Verification steps
 
 1.  Read the raw request body as bytes (do not parse JSON first)
-2.  Read the `X-TAPP-Signature` header
+2.  Read the `X-BMKT-Signature` header
 3.  Compute `HMAC-SHA256(raw_body, secret)`
 4.  Compare your computed signature to the value in the header
 5.  If they match — process the event. If not — return `400` and ignore the payload
@@ -391,12 +391,12 @@ const express = require('express');
 const app = express();
 
 // Use raw body parser to preserve the exact bytes for HMAC
-app.use('/webhooks/tapp', express.raw({ type: 'application/json' }));
+app.use('/webhooks/buildmarkets', express.raw({ type: 'application/json' }));
 
-const WEBHOOK_SECRET = process.env.TAPP_WEBHOOK_SECRET; // your whsec_... value
+const WEBHOOK_SECRET = process.env.BUILDMARKETS_WEBHOOK_SECRET; // your whsec_... value
 
-app.post('/webhooks/tapp', (req, res) => {
-  const signature = req.headers['x-tapp-signature'];
+app.post('/webhooks/buildmarkets', (req, res) => {
+  const signature = req.headers['x-buildmarkets-signature'];
   if (!signature) {
     return res.status(400).send('Missing signature');
   }
@@ -437,11 +437,11 @@ import os
 from flask import Flask, request, abort
 
 app = Flask(__name__)
-WEBHOOK_SECRET = os.environ['TAPP_WEBHOOK_SECRET'].encode()
+WEBHOOK_SECRET = os.environ['BUILDMARKETS_WEBHOOK_SECRET'].encode()
 
-@app.route('/webhooks/tapp', methods=['POST'])
+@app.route('/webhooks/buildmarkets', methods=['POST'])
 def handle_webhook():
-    signature = request.headers.get('X-TAPP-Signature')
+    signature = request.headers.get('X-BMKT-Signature')
     if not signature:
         abort(400, 'Missing signature')
 
@@ -477,11 +477,11 @@ Your webhook URL must:
 *   Return a `2xx` HTTP status code within **10 seconds**
 *   Accept POST requests with `Content-Type: application/json`
 
-TAPP treats any non-`2xx` response (including `3xx` redirects) as a delivery failure and will retry.
+Buildmarkets treats any non-`2xx` response (including `3xx` redirects) as a delivery failure and will retry.
 
 #### Retry schedule
 
-If your endpoint does not return a `2xx` within 10 seconds, TAPP retries delivery with exponential backoff:
+If your endpoint does not return a `2xx` within 10 seconds, Buildmarkets retries delivery with exponential backoff:
 
 | Attempt | Delay after previous attempt |
 |---------|------------------------------|
@@ -491,13 +491,13 @@ If your endpoint does not return a `2xx` within 10 seconds, TAPP retries deliver
 | 4th retry | 5 hours |
 | 5th retry | 10 hours |
 
-After 5 failed retries, the delivery is marked as permanently failed. TAPP does not attempt further delivery for that event. Check the delivery history endpoint to identify and investigate failed events.
+After 5 failed retries, the delivery is marked as permanently failed. Buildmarkets does not attempt further delivery for that event. Check the delivery history endpoint to identify and investigate failed events.
 
 > **Your endpoint should return `2xx` quickly, then process asynchronously.** If your handler takes more than a few seconds, return `200` immediately and offload processing to a background queue. This prevents timeout-induced retries for events you have already received.
 
 #### At-least-once delivery
 
-TAPP guarantees **at-least-once delivery** — every event will be delivered at least once, but rare network conditions can result in duplicate deliveries. Use the `id` field from the payload envelope as an idempotency key to detect and safely ignore duplicates.
+Buildmarkets guarantees **at-least-once delivery** — every event will be delivered at least once, but rare network conditions can result in duplicate deliveries. Use the `id` field from the payload envelope as an idempotency key to detect and safely ignore duplicates.
 
 * * *
 
@@ -533,7 +533,7 @@ Each delivery attempt object contains:
 
 ```bash
 curl https://api.tappengine.com/v1/webhooks/wh_a1b2c3d4-e5f6-7a8b-9c0d-e1f2a3b4c5d6/deliveries \
-  -H "Authorization: Bearer $TAPP_API_KEY"
+  -H "Authorization: Bearer $BUILDMARKETS_API_KEY"
 ```
 
 ##### Example response
@@ -580,9 +580,9 @@ curl https://api.tappengine.com/v1/webhooks/wh_a1b2c3d4-e5f6-7a8b-9c0d-e1f2a3b4c
 
 ### Disabling a webhook
 
-If your endpoint is temporarily unavailable (e.g., during a deployment), you can pause delivery by setting the webhook `status` to `disabled` via `PATCH /v1/webhooks/{webhookId}`. TAPP will not attempt delivery while the webhook is disabled.
+If your endpoint is temporarily unavailable (e.g., during a deployment), you can pause delivery by setting the webhook `status` to `disabled` via `PATCH /v1/webhooks/{webhookId}`. Buildmarkets will not attempt delivery while the webhook is disabled.
 
-> **Note:** TAPP does not queue events that occur while a webhook is disabled. Events that fire during a disabled window will not be retroactively delivered. Use the relevant TAPP API endpoints to reconcile missed state changes if needed.
+> **Note:** Buildmarkets does not queue events that occur while a webhook is disabled. Events that fire during a disabled window will not be retroactively delivered. Use the relevant Buildmarkets API endpoints to reconcile missed state changes if needed.
 
 * * *
 

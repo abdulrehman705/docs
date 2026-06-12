@@ -33,7 +33,7 @@ Python
 
 ```
 class BluumClient {
-  constructor(apiKey, apiSecret, baseUrl = 'https://test-service.bluumfinance.com/v1') {
+  constructor(apiKey, apiSecret, baseUrl = 'https://dev-tapp-api.tappengine.com/v1') {
     this.baseUrl = baseUrl;
     this.auth = 'Basic ' + Buffer.from(`${apiKey}:${apiSecret}`).toString('base64');
   }

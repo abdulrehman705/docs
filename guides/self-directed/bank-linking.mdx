@@ -1,16 +1,16 @@
 ---
 title: "Link a Bank Account"
 sidebarTitle: "Bank Linking"
-description: "Create, list, and remove ACH relationships that link an external bank account to a TAPP brokerage account for deposits and withdrawals."
+description: "Create, list, and remove ACH relationships that link an external bank account to a Buildmarkets brokerage account for deposits and withdrawals."
 ---
 
-Before a user can move money into or out of their brokerage account, you must establish a trusted link between their TAPP account and an external bank account they own. That link is called an **ACH relationship**. It is the permanent, reusable funding rail that makes all subsequent deposits and withdrawals possible.
+Before a user can move money into or out of their brokerage account, you must establish a trusted link between their Buildmarkets account and an external bank account they own. That link is called an **ACH relationship**. It is the permanent, reusable funding rail that makes all subsequent deposits and withdrawals possible.
 
-An ACH relationship represents a verified connection to a specific external bank account — identified by routing number and account number. Once created and approved, the relationship can be used repeatedly for funding activity without re-entering bank credentials. A single TAPP account can hold multiple ACH relationships (e.g., a checking account and a savings account), but only **APPROVED** relationships can be used to initiate transfers.
+An ACH relationship represents a verified connection to a specific external bank account — identified by routing number and account number. Once created and approved, the relationship can be used repeatedly for funding activity without re-entering bank credentials. A single Buildmarkets account can hold multiple ACH relationships (e.g., a checking account and a savings account), but only **APPROVED** relationships can be used to initiate transfers.
 
 ## ACH relationship lifecycle
 
-When a relationship is created, it passes through a short verification workflow before becoming active. TAPP uses third-party instant verification in production — there are no micro-deposits.
+When a relationship is created, it passes through a short verification workflow before becoming active. Buildmarkets uses third-party instant verification in production — there are no micro-deposits.
 
 ```
                     ┌─────────────┐
@@ -54,7 +54,7 @@ When a relationship is created, it passes through a short verification workflow 
 
 ## Create an ACH relationship
 
-Links an external bank account to the specified TAPP brokerage account. TAPP automatically attempts instant verification via a third-party bank data provider. If verification succeeds, the relationship moves to `APPROVED` without any manual review.
+Links an external bank account to the specified Buildmarkets brokerage account. Buildmarkets automatically attempts instant verification via a third-party bank data provider. If verification succeeds, the relationship moves to `APPROVED` without any manual review.
 
 Only the **last 4 digits** of the bank account number are stored after creation. The full number is never returned in any subsequent API response.
 
@@ -64,7 +64,7 @@ Only the **last 4 digits** of the bank account number are stored after creation.
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
-| `accountId` | string (UUID) | ✅ | The TAPP account ID to link the bank account to |
+| `accountId` | string (UUID) | ✅ | The Buildmarkets account ID to link the bank account to |
 
 #### Request body
 
@@ -81,7 +81,7 @@ Only the **last 4 digits** of the bank account number are stored after creation.
 | Field | Type | Description |
 |-------|------|-------------|
 | `id` | string (UUID) | Unique identifier for this ACH relationship |
-| `account_id` | string (UUID) | The TAPP account this relationship is linked to |
+| `account_id` | string (UUID) | The Buildmarkets account this relationship is linked to |
 | `status` | string | Current lifecycle status: `PENDING`, `APPROVED`, `REJECTED`, `CANCELLED` |
 | `bank_account_type` | string | `CHECKING` or `SAVINGS` |
 | `bank_account_number` | string | Masked — last 4 digits only (e.g., `****9012`) |
@@ -95,7 +95,7 @@ Only the **last 4 digits** of the bank account number are stored after creation.
 
 ```bash
 curl -X POST https://api.tappengine.com/v1/accounts/b3d9f1a2-4c7e-4f0b-9e2d-1a2b3c4d5e6f/ach-relationships \
-  -H "Authorization: Bearer $TAPP_API_KEY" \
+  -H "Authorization: Bearer $BUILDMARKETS_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{
     "bank_account_owner_name": "Jane Smith",
@@ -127,7 +127,7 @@ curl -X POST https://api.tappengine.com/v1/accounts/b3d9f1a2-4c7e-4f0b-9e2d-1a2b
 
 ## List ACH relationships
 
-Returns all ACH relationships associated with a TAPP account, across all statuses. Use the `status` field in each object to determine which relationships are available for transfers.
+Returns all ACH relationships associated with a Buildmarkets account, across all statuses. Use the `status` field in each object to determine which relationships are available for transfers.
 
 ### `GET /v1/accounts/{accountId}/ach-relationships`
 
@@ -135,13 +135,13 @@ Returns all ACH relationships associated with a TAPP account, across all statuse
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
-| `accountId` | string (UUID) | ✅ | The TAPP account ID |
+| `accountId` | string (UUID) | ✅ | The Buildmarkets account ID |
 
 #### Example request
 
 ```bash
 curl https://api.tappengine.com/v1/accounts/b3d9f1a2-4c7e-4f0b-9e2d-1a2b3c4d5e6f/ach-relationships \
-  -H "Authorization: Bearer $TAPP_API_KEY"
+  -H "Authorization: Bearer $BUILDMARKETS_API_KEY"
 ```
 
 #### Example response
@@ -187,7 +187,7 @@ Permanently removes an ACH relationship. The status transitions to `CANCELLED` a
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
-| `accountId` | string (UUID) | ✅ | The TAPP account ID |
+| `accountId` | string (UUID) | ✅ | The Buildmarkets account ID |
 | `achId` | string (UUID) | ✅ | The ACH relationship ID to remove |
 
 Returns `204 No Content` on success. No body is returned.
@@ -197,7 +197,7 @@ Returns `204 No Content` on success. No body is returned.
 ```bash
 curl -X DELETE \
   https://api.tappengine.com/v1/accounts/b3d9f1a2-4c7e-4f0b-9e2d-1a2b3c4d5e6f/ach-relationships/e7f2a1b3-9c4d-4e0f-8a1b-2c3d4e5f6a7b \
-  -H "Authorization: Bearer $TAPP_API_KEY"
+  -H "Authorization: Bearer $BUILDMARKETS_API_KEY"
 
 HTTP/1.1 204 No Content
 ```
@@ -211,11 +211,11 @@ HTTP/1.1 204 No Content
 | `404` | `ACCOUNT_NOT_FOUND` | The `accountId` does not exist or is not accessible with your API key |
 | `404` | `ACH_RELATIONSHIP_NOT_FOUND` | The `achId` does not exist for this account |
 | `409` | `DUPLICATE_ACH_RELATIONSHIP` | An active relationship already exists for this routing + account number combination |
-| `422` | `ACCOUNT_NOT_ACTIVE` | The TAPP account is not in `ACTIVE` status |
+| `422` | `ACCOUNT_NOT_ACTIVE` | The Buildmarkets account is not in `ACTIVE` status |
 
 ## Webhook events
 
-TAPP fires webhook events when an ACH relationship changes status. Subscribe to these to drive real-time UI updates.
+Buildmarkets fires webhook events when an ACH relationship changes status. Subscribe to these to drive real-time UI updates.
 
 | Event | Fired when |
 |-------|-----------|

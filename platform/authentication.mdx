@@ -1,14 +1,14 @@
 ---
 title: "Authentication"
 sidebarTitle: "Authentication"
-description: "How TAPP Engine API key authentication works, including generating, listing, and revoking scoped key pairs and security best practices."
+description: "How Buildmarkets API key authentication works, including generating, listing, and revoking scoped key pairs and security best practices."
 ---
 
-The TAPP Engine API uses **API key authentication**. Every request must include a valid key pair. This page explains how authentication works, how to generate and manage keys, and security best practices.
+The Buildmarkets API uses **API key authentication**. Every request must include a valid key pair. This page explains how authentication works, how to generate and manage keys, and security best practices.
 
 ## How authentication works
 
-Every TAPP Engine API request requires two HTTP headers:
+Every Buildmarkets API request requires two HTTP headers:
 
 ```
 X-API-Key: <your-api-key>
@@ -21,8 +21,8 @@ Both values are required on every request. There is no session token or cookie m
 
 ```bash
 curl https://dev-tapp-api.tappengine.com/v1/accounts \
-  -H "X-API-Key: tapp_key_abc123" \
-  -H "X-API-Secret: tapp_secret_xyz789"
+  -H "X-API-Key: bm_key_abc123" \
+  -H "X-API-Secret: bm_secret_xyz789"
 ```
 
 ## API key scopes
@@ -50,7 +50,7 @@ When generating an API key, you assign it one or more **scopes** that control wh
 
 ### Via the Partner Dashboard
 
-Log into the TAPP Engine Partner Dashboard, navigate to **Settings → API Keys**, and click **+ Generate Key**. Give the key a descriptive label (e.g., `"production-backend"` or `"sandbox-frontend"`) and select the required scopes.
+Log into the Buildmarkets Partner Dashboard, navigate to **Settings → API Keys**, and click **+ Generate Key**. Give the key a descriptive label (e.g., `"production-backend"` or `"sandbox-frontend"`) and select the required scopes.
 
 ### Via the API
 
@@ -73,8 +73,8 @@ curl -X POST https://dev-tapp-api.tappengine.com/v1/keys \
 {
   "id": "key-001",
   "label": "backend-service-prod",
-  "api_key": "tapp_key_abc123",
-  "api_secret": "tapp_secret_xyz789",
+  "api_key": "bm_key_abc123",
+  "api_secret": "bm_secret_xyz789",
   "scopes": ["accounts:read", "trading:write", "marketdata:read"],
   "created_at": "2025-06-01T12:00:00Z"
 }

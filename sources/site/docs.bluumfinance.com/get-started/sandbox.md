@@ -10,7 +10,7 @@ Sandbox vs Production
 
 | | Sandbox | Production |
 | --- | --- | --- |
-| **Base URL** | `https://test-service.bluumfinance.com/v1` | `https://service.bluumfinance.com/v1` |
+| **Base URL** | `https://dev-tapp-api.tappengine.com/v1` | `https://api.tappengine.com/v1` |
 | **Data persistence** | Resets nightly at midnight UTC | Permanent |
 | **Order execution** | Simulated fills (instant for market orders) | Real exchange execution |
 | **Deposits** | Simulated ACH processing | Real bank transfers |
@@ -43,7 +43,7 @@ Store your API secret securely. If you lose it, you’ll need to generate a new 
 Test your credentials
 
 ```
-curl -X GET 'https://test-service.bluumfinance.com/v1/assets?asset_class=us_equity&tradable=true' \
+curl -X GET 'https://dev-tapp-api.tappengine.com/v1/assets?asset_class=us_equity&tradable=true' \
   -H 'Authorization: Basic '$(echo -n 'YOUR_API_KEY:YOUR_API_SECRET' | base64)
 ```
 
@@ -59,7 +59,7 @@ The Bluum Postman collection includes pre-configured requests for every endpoint
 
 1. Import the collection from our [Postman documentation](https://documenter.getpostman.com/view/40898431/2sBXVo97hh)
 2. Set environment variables:
- - `baseUrl` = `https://test-service.bluumfinance.com/v1`
+ - `baseUrl` = `https://dev-tapp-api.tappengine.com/v1`
  - `apiKey` = your sandbox API key
  - `apiSecret` = your sandbox API secret
 3. The collection handles Base64 encoding automatically
@@ -114,13 +114,13 @@ Use environment variables to switch between sandbox and production without code 
 
 ```
 # Sandbox
-export BLUUM_BASE_URL="https://test-service.bluumfinance.com/v1"
+export MARKET_BASE_URL="https://dev-tapp-api.tappengine.com/v1"
 export BLUUM_API_KEY="your_sandbox_key"
 export BLUUM_API_SECRET="your_sandbox_secret"
 ```
 
 ```
-const BASE_URL = process.env.BLUUM_BASE_URL;
+const BASE_URL = process.env.MARKET_BASE_URL;
 const credentials = Buffer.from(
   `${process.env.BLUUM_API_KEY}:${process.env.BLUUM_API_SECRET}`
 ).toString('base64');

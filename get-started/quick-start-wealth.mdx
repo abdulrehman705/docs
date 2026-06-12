@@ -1,10 +1,10 @@
 ---
 title: "Quick Start: Wealth Management"
 sidebarTitle: "Wealth Management"
-description: "Common TAPP Engine integration patterns for embedded brokerage, advisor-managed accounts, robo-advisors, challenger banks, and employee benefits."
+description: "Common Buildmarkets integration patterns for embedded brokerage, advisor-managed accounts, robo-advisors, challenger banks, and employee benefits."
 ---
 
-"TAPP Engine is flexible enough to power a wide range of embedded investing products." This documentation explores integration patterns to clarify which API capabilities align with your needs before development begins.
+"Buildmarkets is flexible enough to power a wide range of embedded investing products." This documentation explores integration patterns to clarify which API capabilities align with your needs before development begins.
 
 ## Use case matrix
 
@@ -46,7 +46,7 @@ description: "Common TAPP Engine integration patterns for embedded brokerage, ad
 
 **What you'll build:** (1) Open a brokerage account tied to your existing user record — `POST /v1/accounts` with `corr_metadata`; (2) Link your bank's account as the funding source — `POST /v1/accounts/{accountId}/ach-relationships`; (3) Power market data widgets — quotes, logos, news — `GET /v1/marketdata/real-time/{symbol}`, `/logos/{symbol}`, `/news/{symbol}`; (4) Let users place orders from within your banking UI — `POST /v1/accounts/{accountId}/orders`; (5) Sync order and funding status back to your core system — `POST /v1/webhooks`; (6) Retrieve execution reports for internal reconciliation — `GET /v1/accounts/{accountId}/orders/{orderId}/executions`.
 
-**Key account field:** `corr_metadata` — a freeform string (up to 255 chars) for storing your internal user or account ID alongside the TAPP Engine account. Makes it easy to look up the TAPP account from your system without maintaining a separate mapping table. **Key market data endpoints:** Real-time prices, company profiles, stock logos, and news feeds are all available at the partner level — no account context required. Ideal for powering discovery and watchlist UIs.
+**Key account field:** `corr_metadata` — a freeform string (up to 255 chars) for storing your internal user or account ID alongside the Buildmarkets account. Makes it easy to look up the Buildmarkets account from your system without maintaining a separate mapping table. **Key market data endpoints:** Real-time prices, company profiles, stock logos, and news feeds are all available at the partner level — no account context required. Ideal for powering discovery and watchlist UIs.
 
 ## 5. Employee investment benefits
 
@@ -64,7 +64,7 @@ description: "Common TAPP Engine integration patterns for embedded brokerage, ad
 
 ### Idempotency with `client_order_id`
 
-Pass a `client_order_id` on every `POST /v1/accounts/{accountId}/orders` request. If a network timeout forces a retry, TAPP Engine returns the existing order rather than creating a duplicate. A reliable scheme: `{your-user-id}-{symbol}-{side}-{date}-{sequence}`.
+Pass a `client_order_id` on every `POST /v1/accounts/{accountId}/orders` request. If a network timeout forces a retry, Buildmarkets returns the existing order rather than creating a duplicate. A reliable scheme: `{your-user-id}-{symbol}-{side}-{date}-{sequence}`.
 
 ### Handling pending states
 
@@ -78,7 +78,7 @@ Use webhooks (or poll sparingly) to detect these transitions before presenting c
 
 ### `corr_metadata` for cross-system linking
 
-"The `corr_metadata` field on an account is your bridge between TAPP Engine and your internal data model." Store your internal user ID, account reference, or any structured string there at account creation. This eliminates the need for a separate ID-mapping database and makes cross-system lookups straightforward.
+"The `corr_metadata` field on an account is your bridge between Buildmarkets and your internal data model." Store your internal user ID, account reference, or any structured string there at account creation. This eliminates the need for a separate ID-mapping database and makes cross-system lookups straightforward.
 
 ## Next steps
 

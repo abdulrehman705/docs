@@ -1,7 +1,7 @@
 ---
 title: "Compliance & KYC"
 sidebarTitle: "Compliance & KYC"
-description: "Account opening KYC fields, disclosures, agreements, and the identity-document upload flow for TAPP Engine brokerage accounts."
+description: "Account opening KYC fields, disclosures, agreements, and the identity-document upload flow for Buildmarkets brokerage accounts."
 ---
 
 ## Endpoint
@@ -128,7 +128,7 @@ Use Webhooks to receive real-time notifications when an account's `status` or `k
 
 ## Uploading Documents
 
-The document upload endpoint allows you to submit compliance and identity documents directly to a TAPP brokerage account. This is used during account onboarding when a user's KYC (Know Your Customer) review requires supporting documentation, and during ongoing account maintenance for remediation requests or regulatory requirements.
+The document upload endpoint allows you to submit compliance and identity documents directly to a Buildmarkets brokerage account. This is used during account onboarding when a user's KYC (Know Your Customer) review requires supporting documentation, and during ongoing account maintenance for remediation requests or regulatory requirements.
 
 Uploaded documents are associated with the specified account and routed to the appropriate compliance workflow.
 
@@ -152,7 +152,7 @@ Accepts a Base64-encoded file along with its document type classification. The p
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
-| `accountId` | string (UUID) | ✅ | The TAPP account to attach the document to |
+| `accountId` | string (UUID) | ✅ | The Buildmarkets account to attach the document to |
 
 ##### Request body
 
@@ -198,7 +198,7 @@ Returns `204 No Content` on success. No body is returned.
 ENCODED=$(base64 -i passport_scan.png)
 
 curl -X POST https://api.tappengine.com/v1/accounts/b3d9f1a2-4c7e-4f0b-9e2d-1a2b3c4d5e6f/documents/upload \
-  -H "Authorization: Bearer $TAPP_API_KEY" \
+  -H "Authorization: Bearer $BUILDMARKETS_API_KEY" \
   -H "Content-Type: application/json" \
   -d "{
     \"document_type\": \"identity_verification\",
@@ -214,7 +214,7 @@ curl -X POST https://api.tappengine.com/v1/accounts/b3d9f1a2-4c7e-4f0b-9e2d-1a2b
 ENCODED=$(base64 -i utility_bill.pdf)
 
 curl -X POST https://api.tappengine.com/v1/accounts/b3d9f1a2-4c7e-4f0b-9e2d-1a2b3c4d5e6f/documents/upload \
-  -H "Authorization: Bearer $TAPP_API_KEY" \
+  -H "Authorization: Bearer $BUILDMARKETS_API_KEY" \
   -H "Content-Type: application/json" \
   -d "{
     \"document_type\": \"address_verification\",
@@ -230,7 +230,7 @@ The `w8ben` document type accepts form data as a JSON object in `content_data` r
 
 ```bash
 curl -X POST https://api.tappengine.com/v1/accounts/b3d9f1a2-4c7e-4f0b-9e2d-1a2b3c4d5e6f/documents/upload \
-  -H "Authorization: Bearer $TAPP_API_KEY" \
+  -H "Authorization: Bearer $BUILDMARKETS_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{
     "document_type": "w8ben",

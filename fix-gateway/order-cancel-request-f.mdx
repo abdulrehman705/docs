@@ -1,11 +1,11 @@
 ---
 title: "Order Cancel Request <F>"
 sidebarTitle: "Order Cancel Request <F>"
-description: "How to cancel all remaining quantity on an existing order through the TAPP Engine FIX Gateway."
+description: "How to cancel all remaining quantity on an existing order through the Buildmarkets FIX Gateway."
 ---
 
 ## Overview
-The Order Cancel Request message (MsgType = "F") enables cancellation of all remaining quantity on an existing order within the TAPP Engine FIX Gateway.
+The Order Cancel Request message (MsgType = "F") enables cancellation of all remaining quantity on an existing order within the Buildmarkets FIX Gateway.
 
 ## Key Warning
 "A cancel request may be rejected if the order is already filled, expired, or in a non-cancellable state." Monitor for either confirmation via Execution Report or denial via Order Cancel Reject.
@@ -33,17 +33,17 @@ The Order Cancel Request message (MsgType = "F") enables cancellation of all rem
 
 **Equity Order Cancellation:**
 ```
-8=FIX.4.4|35=F|49=CLIENT1|56=TAPPENGINE|11=CXL-20260212-001|1=ACC123456789|37=TAPP-78450|41=ORD-20260212-001|55=AAPL|167=CS|54=1|60=20260212-15:00:00.000|10=034|
+8=FIX.4.4|35=F|49=CLIENT1|56=BUILDMARKETS|11=CXL-20260212-001|1=ACC123456789|37=BMKT-78450|41=ORD-20260212-001|55=AAPL|167=CS|54=1|60=20260212-15:00:00.000|10=034|
 ```
 
 **Option Order Cancellation:**
 ```
-8=FIX.4.4|35=F|49=CLIENT1|56=TAPPENGINE|11=CXL-20260212-002|1=ACC123456789|37=TAPP-78451|41=ORD-20260212-003|55=AAPL|167=OPT|54=1|60=20260212-15:00:00.000|10=056|
+8=FIX.4.4|35=F|49=CLIENT1|56=BUILDMARKETS|11=CXL-20260212-002|1=ACC123456789|37=BMKT-78451|41=ORD-20260212-003|55=AAPL|167=OPT|54=1|60=20260212-15:00:00.000|10=056|
 ```
 
 **Multileg Order Cancellation:**
 ```
-8=FIX.4.4|35=F|49=CLIENT1|56=TAPPENGINE|11=CXL-20260212-003|1=ACC123456789|37=TAPP-78460|41=MLEG-20260212-001|55=AAPL|167=MLEG|54=1|60=20260212-15:00:00.000|10=078|
+8=FIX.4.4|35=F|49=CLIENT1|56=BUILDMARKETS|11=CXL-20260212-003|1=ACC123456789|37=BMKT-78460|41=MLEG-20260212-001|55=AAPL|167=MLEG|54=1|60=20260212-15:00:00.000|10=078|
 ```
 
 ## REST Alternatives
